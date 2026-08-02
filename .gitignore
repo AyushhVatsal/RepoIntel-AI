@@ -1,0 +1,25 @@
+# Virtual Environment
+.venv/
+
+# Environment Variables
+.env
+
+# Python Cache
+__pycache__/
+*.py[cod]
+
+# IDE Settings
+.vscode/
+.idea/
+
+# Test Cache
+.pytest_cache/
+
+# Type Checker Cache
+.mypy_cache/
+
+# Ruff Cache
+.ruff_cache/
+
+# macOS
+.DS_Store
