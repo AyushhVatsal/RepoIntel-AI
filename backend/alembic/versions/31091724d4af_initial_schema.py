@@ -41,7 +41,7 @@ def upgrade() -> None:
     sa.Column('description', sa.String(length=1000), nullable=True),
     sa.Column('default_branch', sa.String(length=100), nullable=False),
     sa.Column('clone_path', sa.String(length=500), nullable=False),
-    sa.Column('status', sa.Enum('PENDING', 'CLONING', 'INDEXING', 'READY', 'FAILED', name='repositorystatus'), nullable=False),
+    sa.Column('status', sa.Enum("PENDING","CLONING","SCANNING","PARSING","INDEXED","FAILED",name="repositorystatus",), nullable=False),
     sa.Column('last_indexed_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),

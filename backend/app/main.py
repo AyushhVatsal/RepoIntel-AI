@@ -19,23 +19,3 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
-
-
-@app.get(
-    "/",
-    tags=["Health"],
-)
-async def root():
-    return {
-        "message": f"Welcome to {settings.APP_NAME}",
-    }
-
-
-@app.get(
-    "/health",
-    tags=["Health"],
-)
-async def health():
-    return {
-        "status": "healthy",
-    }

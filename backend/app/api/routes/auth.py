@@ -9,8 +9,8 @@ from fastapi import (
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from app.api.deps.db import get_db
 from app.api.deps.auth import get_current_active_user
+from app.api.deps.db import get_db
 from app.core.config import settings
 from app.core.security import create_access_token
 from app.crud.user import (

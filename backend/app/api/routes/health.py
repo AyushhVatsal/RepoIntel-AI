@@ -1,10 +1,25 @@
 from fastapi import APIRouter
 
-router = APIRouter()
+router = APIRouter(
+    tags=["Health"],
+)
 
 
-@router.get("/health")
-async def health_check():
+@router.get(
+    "/",
+    summary="Root endpoint",
+)
+def root():
     return {
-        "status": "running"
+        "message": f"Welcome to RepoIntel AI",
+    }
+
+
+@router.get(
+    "/health",
+    summary="Health check",
+)
+def health_check():
+    return {
+        "status": "healthy",
     }

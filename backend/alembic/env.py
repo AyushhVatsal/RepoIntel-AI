@@ -10,10 +10,11 @@ from app.db.database import Base
 
 # Import all models so Alembic can discover them
 from app.models import (
-    Conversation,
-    Message,
     Repository,
     User,
+    RepositoryFile,
+    Conversation,
+    Message,
 )
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

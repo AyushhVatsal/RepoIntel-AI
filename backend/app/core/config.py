@@ -21,9 +21,6 @@ class Settings(BaseSettings):
     GIT_CLONE_DIR: str
     GROQ_API_KEY: SecretStr
 
-    QDRANT_URL: str = "http://localhost:6333"
-    QDRANT_API_KEY: SecretStr | None = None
-
     BACKEND_CORS_ORIGINS: list[str] = []
 
     model_config = SettingsConfigDict(
