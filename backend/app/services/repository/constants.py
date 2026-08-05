@@ -65,6 +65,7 @@ TIER_1_SOURCE_EXTENSIONS = {
 # =============================================================================
 
 TIER_0_SOURCE_EXTENSIONS = {
+    # Existing
     ".go",
     ".rs",
     ".c",
@@ -77,6 +78,23 @@ TIER_0_SOURCE_EXTENSIONS = {
     ".swift",
     ".php",
     ".rb",
+
+    # Web
+    ".html",
+    ".htm",
+    ".css",
+    ".scss",
+    ".sass",
+
+    # Additional
+    ".dart",
+    ".scala",
+    ".lua",
+    ".sh",
+    ".bash",
+    ".zsh",
+    ".r",
+    ".m",
 }
 
 # =============================================================================
@@ -150,6 +168,24 @@ LANGUAGE_MANIFEST_FILES = {
     ],
     "PHP": [
         "composer.json",
+    ],
+    "Dart": [
+        "pubspec.yaml",
+    ],
+    "Scala": [
+        "build.sbt",
+    ],
+    "Lua": [
+        "*.rockspec",
+    ],
+    "Ruby": [
+        "Gemfile",
+    ],
+    "C++": [
+        "CMakeLists.txt",
+    ],
+    "C": [
+        "CMakeLists.txt",
     ],
 }
 
@@ -225,6 +261,7 @@ from app.models.repository_file import (
 # =============================================================================
 
 EXTENSION_LANGUAGE_MAP = {
+    # Tier 1
     ".py": "Python",
     ".java": "Java",
     ".js": "JavaScript",
@@ -232,6 +269,7 @@ EXTENSION_LANGUAGE_MAP = {
     ".ts": "TypeScript",
     ".tsx": "TypeScript",
 
+    # Tier 0
     ".go": "Go",
     ".rs": "Rust",
     ".c": "C",
@@ -244,8 +282,24 @@ EXTENSION_LANGUAGE_MAP = {
     ".swift": "Swift",
     ".php": "PHP",
     ".rb": "Ruby",
-}
 
+    # Web
+    ".html": "HTML",
+    ".htm": "HTML",
+    ".css": "CSS",
+    ".scss": "SCSS",
+    ".sass": "SASS",
+
+    # Additional
+    ".dart": "Dart",
+    ".scala": "Scala",
+    ".lua": "Lua",
+    ".sh": "Shell",
+    ".bash": "Shell",
+    ".zsh": "Shell",
+    ".r": "R",
+    ".m": "MATLAB",
+}
 # =============================================================================
 # Extension -> Support Tier
 # =============================================================================
