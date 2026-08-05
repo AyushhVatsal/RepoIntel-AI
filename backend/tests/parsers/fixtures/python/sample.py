@@ -3,29 +3,72 @@ Module docstring.
 """
 
 import os
-import json as js
+import sys as system
+import numpy as np
 
 from pathlib import Path
-from pydantic import BaseModel
-from typing import Any
+from typing import List, Dict
+from collections import defaultdict as dd
 
 
-API_VERSION = "1.0"
+PI = 3.14
+MAX_SIZE = 100
 
 
-class User(BaseModel):
-    """
-    User model.
-    """
+class Animal:
+    """Animal docstring."""
+
+    species = "Unknown"
+
+    def speak(self):
+        pass
+
+
+class Dog(Animal):
+    """Dog docstring."""
+
+    breed = "Labrador"
 
     @staticmethod
-    def login(
+    def create(name: str):
+        return Dog()
+
+    @classmethod
+    def from_age(cls, age: int):
+        return cls()
+
+    @property
+    def info(self):
+        return self.breed
+
+    async def bark(
         self,
-        username: str,
-        password: str,
-    ) -> bool:
-        return True
+        volume: int = 5,
+    ) -> str:
+        """Async bark."""
+
+        return "Woof"
+
+    def walk(
+        self,
+        distance: float,
+        *args,
+        speed: float = 1.0,
+        **kwargs,
+    ):
+        pass
 
 
-async def fetch_users():
-    pass
+def helper(
+    x: int,
+    y: int = 10,
+):
+    """Helper function."""
+
+    return x + y
+
+
+async def fetch_data(
+    url: str,
+):
+    return {}
