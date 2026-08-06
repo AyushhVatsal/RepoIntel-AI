@@ -19,148 +19,214 @@ class LanguageRegistry:
         # Tier 1 Languages
         # ==========================================================
 
-        "Python": LanguageConfig(
-            language="Python",
-            supports_tree_sitter=True,
-            tree_sitter_language="python",
+        "python": LanguageConfig(
+            language="python",
+            extensions=(".py",),
+            tier="tier_1",
+            parser="tree_sitter",
+            grammar_name="python",
             grammar_module="tree_sitter_python",
             query_file=QUERY_DIRECTORY / "python.scm",
+            supports_ast=True,
+            supports_symbols=True,
+            supports_docstrings=True,
+            supports_return_types=True,
+            supports_incremental_parsing=True,
         ),
 
-        "Java": LanguageConfig(
-            language="Java",
-            supports_tree_sitter=True,
-            tree_sitter_language="java",
+        "java": LanguageConfig(
+            language="java",
+            extensions=(".java",),
+            tier="tier_1",
+            parser="tree_sitter",
+            grammar_name="java",
             grammar_module="tree_sitter_java",
             query_file=QUERY_DIRECTORY / "java.scm",
+            supports_ast=True,
+            supports_symbols=True,
+            supports_docstrings=True,
+            supports_return_types=True,
+            supports_incremental_parsing=True,
         ),
 
-        "JavaScript": LanguageConfig(
-            language="JavaScript",
-            supports_tree_sitter=True,
-            tree_sitter_language="javascript",
+        "javascript": LanguageConfig(
+            language="javascript",
+            extensions=(".js", ".jsx"),
+            tier="tier_1",
+            parser="tree_sitter",
+            grammar_name="javascript",
             grammar_module="tree_sitter_javascript",
             query_file=QUERY_DIRECTORY / "javascript.scm",
+            supports_ast=True,
+            supports_symbols=True,
+            supports_docstrings=True,
+            supports_return_types=True,
+            supports_incremental_parsing=True,
         ),
 
-        "TypeScript": LanguageConfig(
-            language="TypeScript",
-            supports_tree_sitter=True,
-            tree_sitter_language="typescript",
+        "typescript": LanguageConfig(
+            language="typescript",
+            extensions=(".ts", ".tsx"),
+            tier="tier_1",
+            parser="tree_sitter",
+            grammar_name="typescript",
             grammar_module="tree_sitter_typescript",
             query_file=QUERY_DIRECTORY / "typescript.scm",
+            supports_ast=True,
+            supports_symbols=True,
+            supports_docstrings=True,
+            supports_return_types=True,
+            supports_incremental_parsing=True,
         ),
 
         # ==========================================================
         # Tier 0 Languages
         # ==========================================================
 
-        "Go": LanguageConfig(
-            language="Go",
-            supports_tree_sitter=False,
+        "go": LanguageConfig(
+            language="go",
+            extensions=(".go",),
+            tier="tier_0",
+            parser="text",
         ),
 
-        "Rust": LanguageConfig(
-            language="Rust",
-            supports_tree_sitter=False,
+        "rust": LanguageConfig(
+            language="rust",
+            extensions=(".rs",),
+            tier="tier_0",
+            parser="text",
         ),
 
-        "C": LanguageConfig(
-            language="C",
-            supports_tree_sitter=False,
+        "c": LanguageConfig(
+            language="c",
+            extensions=(".c", ".h"),
+            tier="tier_0",
+            parser="text",
         ),
 
-        "C++": LanguageConfig(
-            language="C++",
-            supports_tree_sitter=False,
+        "cpp": LanguageConfig(
+            language="cpp",
+            extensions=(".cpp", ".cc", ".cxx", ".hpp"),
+            tier="tier_0",
+            parser="text",
         ),
 
-        "C#": LanguageConfig(
-            language="C#",
-            supports_tree_sitter=False,
+        "csharp": LanguageConfig(
+            language="csharp",
+            extensions=(".cs",),
+            tier="tier_0",
+            parser="text",
         ),
 
-        "Kotlin": LanguageConfig(
-            language="Kotlin",
-            supports_tree_sitter=False,
+        "kotlin": LanguageConfig(
+            language="kotlin",
+            extensions=(".kt",),
+            tier="tier_0",
+            parser="text",
         ),
 
-        "Swift": LanguageConfig(
-            language="Swift",
-            supports_tree_sitter=False,
+        "swift": LanguageConfig(
+            language="swift",
+            extensions=(".swift",),
+            tier="tier_0",
+            parser="text",
         ),
 
-        "PHP": LanguageConfig(
-            language="PHP",
-            supports_tree_sitter=False,
+        "php": LanguageConfig(
+            language="php",
+            extensions=(".php",),
+            tier="tier_0",
+            parser="text",
         ),
 
-        "Ruby": LanguageConfig(
-            language="Ruby",
-            supports_tree_sitter=False,
+        "ruby": LanguageConfig(
+            language="ruby",
+            extensions=(".rb",),
+            tier="tier_0",
+            parser="text",
         ),
 
-        "HTML": LanguageConfig(
-            language="HTML",
-            supports_tree_sitter=False,
+        "html": LanguageConfig(
+            language="html",
+            extensions=(".html", ".htm"),
+            tier="tier_0",
+            parser="text",
         ),
 
-        "CSS": LanguageConfig(
-            language="CSS",
-            supports_tree_sitter=False,
+        "css": LanguageConfig(
+            language="css",
+            extensions=(".css",),
+            tier="tier_0",
+            parser="text",
         ),
 
-        "SCSS": LanguageConfig(
-            language="SCSS",
-            supports_tree_sitter=False,
+        "scss": LanguageConfig(
+            language="scss",
+            extensions=(".scss",),
+            tier="tier_0",
+            parser="text",
         ),
 
-        "SASS": LanguageConfig(
-            language="SASS",
-            supports_tree_sitter=False,
+        "sass": LanguageConfig(
+            language="sass",
+            extensions=(".sass",),
+            tier="tier_0",
+            parser="text",
         ),
 
-        "Dart": LanguageConfig(
-            language="Dart",
-            supports_tree_sitter=False,
+        "dart": LanguageConfig(
+            language="dart",
+            extensions=(".dart",),
+            tier="tier_0",
+            parser="text",
         ),
 
-        "Scala": LanguageConfig(
-            language="Scala",
-            supports_tree_sitter=False,
+        "scala": LanguageConfig(
+            language="scala",
+            extensions=(".scala",),
+            tier="tier_0",
+            parser="text",
         ),
 
-        "Lua": LanguageConfig(
-            language="Lua",
-            supports_tree_sitter=False,
+        "lua": LanguageConfig(
+            language="lua",
+            extensions=(".lua",),
+            tier="tier_0",
+            parser="text",
         ),
 
-        "Shell": LanguageConfig(
-            language="Shell",
-            supports_tree_sitter=False,
+        "shell": LanguageConfig(
+            language="shell",
+            extensions=(".sh", ".bash", ".zsh"),
+            tier="tier_0",
+            parser="text",
         ),
 
-        "R": LanguageConfig(
-            language="R",
-            supports_tree_sitter=False,
+        "r": LanguageConfig(
+            language="r",
+            extensions=(".r",),
+            tier="tier_0",
+            parser="text",
         ),
 
-        "MATLAB": LanguageConfig(
-            language="MATLAB",
-            supports_tree_sitter=False,
+        "matlab": LanguageConfig(
+            language="matlab",
+            extensions=(".m",),
+            tier="tier_0",
+            parser="text",
         ),
     }
 
     @classmethod
     def get(cls, language: str) -> LanguageConfig:
         try:
-            return cls._registry[language]
+            return cls._registry[language.lower()]
         except KeyError:
             raise ValueError(f"Unsupported language: {language}")
 
     @classmethod
     def is_supported(cls, language: str) -> bool:
-        return language in cls._registry
+        return language.lower() in cls._registry
 
     @classmethod
     def supported_languages(cls) -> list[str]:

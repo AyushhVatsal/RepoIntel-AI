@@ -48,15 +48,7 @@
   name: (identifier) @function.name
 ) @function.definition
 
-(async_function_definition
-  name: (identifier) @function.name
-) @function.definition
-
 (function_definition
-  return_type: (_) @function.return_type
-)
-
-(async_function_definition
   return_type: (_) @function.return_type
 )
 
@@ -76,7 +68,7 @@
 )
 
 (parameters
-  (default_parameter
+  (typed_default_parameter
     name: (identifier) @parameter.name
   )
 )
@@ -139,15 +131,6 @@
 ; ==========================================================
 
 (function_definition
-  body: (block
-    .
-    (expression_statement
-      (string) @docstring.function
-    )
-  )
-)
-
-(async_function_definition
   body: (block
     .
     (expression_statement

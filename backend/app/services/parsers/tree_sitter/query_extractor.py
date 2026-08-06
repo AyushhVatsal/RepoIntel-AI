@@ -29,12 +29,12 @@ class QueryExtractor:
         config: LanguageConfig,
     ) -> Query:
 
-        if config.tree_sitter_language is None:
+        if config.grammar_name is None:
             raise QueryExecutionError(
                 f"{config.language} does not support Tree-sitter queries."
             )
 
-        cache_key = config.tree_sitter_language
+        cache_key = config.grammar_name
 
         if cache_key in cls._query_cache:
             return cls._query_cache[cache_key]
@@ -77,9 +77,16 @@ class QueryExtractor:
 
         query = cls._load_query(config)
 
-        cursor = QueryCursor()
+        cursor = QueryCursor(query)
 
-        return cursor.captures(
-            tree.root_node,
-            query,
-        )
+        captures = cursor.captures(tree.root_node)
+
+        normalized: list[tuple] = []
+
+        for capture_name, nodes in captures.items():
+            for node in nodes:
+                normalized.append(
+                    (node, capture_name)
+                )
+
+        return normalized

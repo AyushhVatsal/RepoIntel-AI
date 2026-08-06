@@ -27,14 +27,14 @@ class TreeSitterService:
         config: LanguageConfig,
     ) -> Language:
 
-        if not config.supports_tree_sitter:
+        if config.parser != "tree_sitter":
             raise UnsupportedLanguageError(
                 f"{config.language} does not support Tree-sitter."
             )
 
-        if config.tree_sitter_language in cls._language_cache:
+        if config.grammar_name in cls._language_cache:
             return cls._language_cache[
-                config.tree_sitter_language
+                config.grammar_name
             ]
 
         module = importlib.import_module(
@@ -46,7 +46,7 @@ class TreeSitterService:
         )
 
         cls._language_cache[
-            config.tree_sitter_language
+            config.grammar_name
         ] = language
 
         return language
@@ -57,9 +57,9 @@ class TreeSitterService:
         config: LanguageConfig,
     ) -> Parser:
 
-        if config.tree_sitter_language in cls._parser_cache:
+        if config.grammar_name in cls._parser_cache:
             return cls._parser_cache[
-                config.tree_sitter_language
+                config.grammar_name
             ]
 
         language = cls.get_language(config)
@@ -67,7 +67,7 @@ class TreeSitterService:
         parser = Parser(language)
 
         cls._parser_cache[
-            config.tree_sitter_language
+            config.grammar_name
         ] = parser
 
         return parser

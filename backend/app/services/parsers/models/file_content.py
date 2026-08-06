@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.models.repository_file import RepositoryFile
+from app.schemas.repository_file import RepositoryFileResponse
 
 from .base import ParserBaseModel
 
@@ -13,6 +13,6 @@ class FileContent(ParserBaseModel):
     content to all downstream services.
     """
 
-    repository_file: RepositoryFile
+    repository_file: RepositoryFileResponse
 
     content: bytes

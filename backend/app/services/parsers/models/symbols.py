@@ -38,7 +38,7 @@ class Parameter(ParserBaseModel):
     is_keyword_only: bool = False
 
 
-class Field(ParserBaseModel):
+class ClassField(ParserBaseModel):
     """
     Represents a class field.
 
@@ -128,7 +128,7 @@ class ClassSymbol(BaseSymbol):
 
     methods: list[FunctionSymbol] = Field(default_factory=list)
 
-    fields: list[Field] = Field(default_factory=list)
+    fields: list[ClassField] = Field(default_factory=list)
 
     is_abstract: bool = False
 

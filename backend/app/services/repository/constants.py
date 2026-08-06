@@ -146,47 +146,90 @@ SPECIAL_TEXT_FILENAMES = {
 # =============================================================================
 
 LANGUAGE_MANIFEST_FILES = {
-    "Python": [
+    "python": [
         "pyproject.toml",
         "requirements.txt",
         "Pipfile",
         "poetry.lock",
     ],
-    "JavaScript": [
+
+    "javascript": [
         "package.json",
     ],
-    "Java": [
+
+    "typescript": [
+        "package.json",
+    ],
+
+    "java": [
         "pom.xml",
         "build.gradle",
         "build.gradle.kts",
     ],
-    "Go": [
+
+    "go": [
         "go.mod",
     ],
-    "Rust": [
+
+    "rust": [
         "Cargo.toml",
     ],
-    "PHP": [
+
+    "php": [
         "composer.json",
     ],
-    "Dart": [
+
+    "dart": [
         "pubspec.yaml",
     ],
-    "Scala": [
+
+    "scala": [
         "build.sbt",
     ],
-    "Lua": [
+
+    "lua": [
         "*.rockspec",
     ],
-    "Ruby": [
+
+    "ruby": [
         "Gemfile",
     ],
-    "C++": [
+
+    "cpp": [
         "CMakeLists.txt",
     ],
-    "C": [
+
+    "c": [
         "CMakeLists.txt",
     ],
+
+    "csharp": [
+        "*.csproj",
+    ],
+
+    "kotlin": [
+        "build.gradle.kts",
+    ],
+
+    "swift": [
+        "Package.swift",
+    ],
+
+    "shell": [],
+
+    "html": [],
+
+    "css": [],
+
+    "scss": [],
+
+    "sass": [],
+
+    "r": [
+        "DESCRIPTION",
+    ],
+
+    "matlab": [],
 }
 
 # =============================================================================
@@ -261,44 +304,40 @@ from app.models.repository_file import (
 # =============================================================================
 
 EXTENSION_LANGUAGE_MAP = {
-    # Tier 1
-    ".py": "Python",
-    ".java": "Java",
-    ".js": "JavaScript",
-    ".jsx": "JavaScript",
-    ".ts": "TypeScript",
-    ".tsx": "TypeScript",
+    ".py": "python",
+    ".java": "java",
+    ".js": "javascript",
+    ".jsx": "javascript",
+    ".ts": "typescript",
+    ".tsx": "typescript",
 
-    # Tier 0
-    ".go": "Go",
-    ".rs": "Rust",
-    ".c": "C",
-    ".cpp": "C++",
-    ".cc": "C++",
-    ".h": "C",
-    ".hpp": "C++",
-    ".cs": "C#",
-    ".kt": "Kotlin",
-    ".swift": "Swift",
-    ".php": "PHP",
-    ".rb": "Ruby",
+    ".go": "go",
+    ".rs": "rust",
+    ".c": "c",
+    ".cpp": "cpp",
+    ".cc": "cpp",
+    ".h": "c",
+    ".hpp": "cpp",
+    ".cs": "csharp",
+    ".kt": "kotlin",
+    ".swift": "swift",
+    ".php": "php",
+    ".rb": "ruby",
 
-    # Web
-    ".html": "HTML",
-    ".htm": "HTML",
-    ".css": "CSS",
-    ".scss": "SCSS",
-    ".sass": "SASS",
+    ".html": "html",
+    ".htm": "html",
+    ".css": "css",
+    ".scss": "scss",
+    ".sass": "sass",
 
-    # Additional
-    ".dart": "Dart",
-    ".scala": "Scala",
-    ".lua": "Lua",
-    ".sh": "Shell",
-    ".bash": "Shell",
-    ".zsh": "Shell",
-    ".r": "R",
-    ".m": "MATLAB",
+    ".dart": "dart",
+    ".scala": "scala",
+    ".lua": "lua",
+    ".sh": "shell",
+    ".bash": "shell",
+    ".zsh": "shell",
+    ".r": "r",
+    ".m": "matlab",
 }
 # =============================================================================
 # Extension -> Support Tier
@@ -339,7 +378,7 @@ SOURCE_EXTENSIONS = (
 # =============================================================================
 
 FRAMEWORK_DETECTION_RULES = {
-    "Python": {
+    "python": {
         "manifests": [
             "requirements.txt",
             "requirements-dev.txt",
@@ -362,7 +401,7 @@ FRAMEWORK_DETECTION_RULES = {
         },
     },
 
-    "JavaScript": {
+    "javascript": {
         "package_json": True,
         "frameworks": {
             "react": "React",
@@ -377,7 +416,7 @@ FRAMEWORK_DETECTION_RULES = {
         },
     },
 
-    "TypeScript": {
+    "typescript": {
         "package_json": True,
         "frameworks": {
             "react": "React",
@@ -392,7 +431,7 @@ FRAMEWORK_DETECTION_RULES = {
         },
     },
 
-    "Java": {
+    "java": {
         "manifests": [
             "pom.xml",
             "build.gradle",
@@ -408,7 +447,7 @@ FRAMEWORK_DETECTION_RULES = {
         },
     },
 
-    "Go": {
+    "go": {
         "manifests": ["go.mod"],
         "frameworks": {
             "github.com/gin-gonic/gin": "Gin",
@@ -419,7 +458,7 @@ FRAMEWORK_DETECTION_RULES = {
         },
     },
 
-    "Rust": {
+    "rust": {
         "manifests": ["Cargo.toml"],
         "frameworks": {
             "actix-web": "Actix Web",
@@ -429,7 +468,7 @@ FRAMEWORK_DETECTION_RULES = {
         },
     },
 
-    "C#": {
+    "csharp": {
         "manifests": ["*.csproj"],
         "frameworks": {
             "Microsoft.AspNetCore.App": "ASP.NET Core",
@@ -438,7 +477,7 @@ FRAMEWORK_DETECTION_RULES = {
         },
     },
 
-    "PHP": {
+    "php": {
         "manifests": ["composer.json"],
         "frameworks": {
             "laravel/framework": "Laravel",
@@ -450,7 +489,7 @@ FRAMEWORK_DETECTION_RULES = {
         },
     },
 
-    "Ruby": {
+    "ruby": {
         "manifests": ["Gemfile"],
         "frameworks": {
             "rails": "Ruby on Rails",
@@ -459,7 +498,7 @@ FRAMEWORK_DETECTION_RULES = {
         },
     },
 
-    "Kotlin": {
+    "kotlin": {
         "manifests": ["build.gradle.kts"],
         "frameworks": {
             "ktor": "Ktor",
@@ -467,7 +506,7 @@ FRAMEWORK_DETECTION_RULES = {
         },
     },
 
-    "Swift": {
+    "swift": {
         "manifests": ["Package.swift"],
         "frameworks": {
             "vapor": "Vapor",
@@ -475,7 +514,7 @@ FRAMEWORK_DETECTION_RULES = {
         },
     },
 
-    "Dart": {
+    "dart": {
         "manifests": ["pubspec.yaml"],
         "frameworks": {
             "flutter": "Flutter",
@@ -483,7 +522,7 @@ FRAMEWORK_DETECTION_RULES = {
         },
     },
 
-    "Scala": {
+    "scala": {
         "manifests": ["build.sbt"],
         "frameworks": {
             "play": "Play Framework",
@@ -492,14 +531,14 @@ FRAMEWORK_DETECTION_RULES = {
         },
     },
 
-    "Elixir": {
+    "elixir": {
         "manifests": ["mix.exs"],
         "frameworks": {
             "phoenix": "Phoenix",
         },
     },
 
-    "C++": {
+    "cpp": {
         "manifests": ["CMakeLists.txt"],
         "frameworks": {
             "qt": "Qt",
@@ -508,7 +547,7 @@ FRAMEWORK_DETECTION_RULES = {
         },
     },
 
-    "C": {
+    "c": {
         "manifests": ["CMakeLists.txt"],
         "frameworks": {
             "esp-idf": "ESP-IDF",
@@ -516,7 +555,7 @@ FRAMEWORK_DETECTION_RULES = {
         },
     },
 
-    "Lua": {
+    "lua": {
         "manifests": ["rockspec"],
         "frameworks": {
             "openresty": "OpenResty",
@@ -524,7 +563,7 @@ FRAMEWORK_DETECTION_RULES = {
         },
     },
 
-    "R": {
+    "r": {
         "manifests": ["DESCRIPTION"],
         "frameworks": {
             "shiny": "Shiny",
@@ -532,7 +571,7 @@ FRAMEWORK_DETECTION_RULES = {
         },
     },
 
-    "MATLAB": {
+    "matlab": {
         "manifests": [],
         "frameworks": {
             "simulink": "Simulink",

@@ -4,7 +4,7 @@ from typing import Any
 
 from pydantic import Field
 
-from app.models.repository_file import RepositoryFile
+from app.schemas.repository_file import RepositoryFileResponse
 
 from .base import ParserBaseModel
 from .symbols import BaseSymbol, SourceLocation
@@ -25,7 +25,7 @@ class ParsedDocument(ParserBaseModel):
     Intermediate Representation (IR) of a parsed source file.
     """
 
-    repository_file: RepositoryFile
+    repository_file: RepositoryFileResponse
 
     source_code: str
 

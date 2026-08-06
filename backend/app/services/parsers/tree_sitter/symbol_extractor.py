@@ -66,9 +66,17 @@ class SymbolExtractor:
         )
 
         symbols: list[BaseSymbol] = []
+
         symbols.extend(imports)
         symbols.extend(classes)
-        symbols.extend(functions)
+
+        # Only top-level functions should be returned.
+        symbols.extend(
+            function
+            for function in functions
+            if function.type == SymbolType.FUNCTION
+        )
+
         symbols.extend(variables)
 
         return symbols
@@ -373,6 +381,17 @@ class SymbolExtractor:
 
         return None
 
+    @classmethod
+    def _is_async(
+        cls,
+        function_node: Node,
+    ) -> bool:
+
+        return (
+            function_node.prev_named_sibling is not None
+            and function_node.prev_named_sibling.type == "async"
+        )
+
     # ==========================================================
     # Classes
     # ==========================================================
@@ -564,9 +583,7 @@ class SymbolExtractor:
                     parameters=parameters,
                     decorators=decorators,
                     return_type=return_type,
-                    is_async=(
-                        function_node.type == "async_function_definition"
-                    ),
+                    is_async=cls._is_async(function_node),
                     is_generator=False,
                     parent_symbol=(
                         parent_class_symbol.symbol_id
@@ -718,9 +735,17 @@ class SymbolExtractor:
         `@router.get("/")` -> "router.get", not `router.get("/")`.
         """
 
+        parent = function_node.parent
+
+        if parent is None:
+            return []
+
+        if parent.type != "decorated_definition":
+            return []
+
         decorators: list[str] = []
 
-        for child in function_node.children:
+        for child in parent.named_children:
 
             if child.type != "decorator":
                 continue
@@ -740,7 +765,9 @@ class SymbolExtractor:
             else:
                 target = expression
 
-            decorators.append(cls._text(target, source_code))
+            decorators.append(
+                cls._text(target, source_code)
+            )
 
         return decorators
 
