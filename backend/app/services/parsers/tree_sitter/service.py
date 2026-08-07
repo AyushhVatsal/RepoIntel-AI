@@ -41,9 +41,21 @@ class TreeSitterService:
             config.grammar_module
         )
 
-        language = Language(
-            module.language()
-        )
+        if hasattr(module, "language"):
+            language = Language(module.language())
+
+        elif hasattr(module, f"language_{config.grammar_name}"):
+            language = Language(
+                getattr(
+                    module,
+                    f"language_{config.grammar_name}"
+                )()
+            )
+
+        else:
+            raise UnsupportedLanguageError(
+                f"No language factory found for {config.language}."
+            )
 
         cls._language_cache[
             config.grammar_name

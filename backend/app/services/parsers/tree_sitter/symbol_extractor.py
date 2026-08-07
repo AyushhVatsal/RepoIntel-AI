@@ -21,6 +21,10 @@ from .grammar_config import GrammarConfig
 
 from app.services.parsers.models.symbols import Visibility
 
+from app.services.parsers.tree_sitter.languages.javascript.javascript_processor import (
+    JavaScriptProcessor,
+)
+
 
 class SymbolExtractor:
     """
@@ -101,7 +105,7 @@ class SymbolExtractor:
 
         symbols.extend(variables)
 
-        return symbols
+        return symbols, grouped
 
     # ==========================================================
     # Grouping

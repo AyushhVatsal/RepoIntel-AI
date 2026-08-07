@@ -10,6 +10,8 @@ from .symbol_extractor import SymbolExtractor
 
 from .grammar_registry import GrammarRegistry
 
+from .languages.javascript.javascript_processor import JavaScriptProcessor
+
 class TreeSitterParser:
     """
     Parser implementation for Tier 1 languages.
@@ -72,15 +74,23 @@ class TreeSitterParser:
             repository_file.language,
         )
 
-        symbols = SymbolExtractor.extract(
+        symbols, grouped = SymbolExtractor.extract(
             captures=captures,
             source_code=source_code,
             language_config=language_config,
             grammar_config=grammar_config,
         )
 
+        if repository_file.language == "javascript":
+            symbols = JavaScriptProcessor.process(
+                symbols=symbols,
+                grouped=grouped,
+                source_code=source_code,
+            )
+
         return ParsedDocument(
             repository_file=repository_file,
             source_code=source_code,
             symbols=symbols,
         )
+    
