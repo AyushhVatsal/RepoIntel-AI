@@ -4,7 +4,6 @@ from pathlib import Path
 
 from .language_config import LanguageConfig
 
-
 QUERY_DIRECTORY = Path(__file__).parent / "queries"
 
 
@@ -60,7 +59,7 @@ class LanguageRegistry:
             supports_ast=True,
             supports_symbols=True,
             supports_docstrings=True,
-            supports_return_types=True,
+            supports_return_types=False,
             supports_incremental_parsing=True,
         ),
 

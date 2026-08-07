@@ -14,6 +14,9 @@ from collections import defaultdict as dd
 PI = 3.14
 MAX_SIZE = 100
 
+name: str = "RepoIntel"
+count: int = 42
+
 
 class Animal:
     """Animal docstring."""
@@ -22,6 +25,14 @@ class Animal:
 
     def speak(self):
         pass
+
+
+class Pet:
+    pass
+
+
+class Robot:
+    pass
 
 
 class Dog(Animal):
@@ -41,6 +52,11 @@ class Dog(Animal):
     def info(self):
         return self.breed
 
+    @staticmethod
+    @property
+    def version():
+        return "1.0"
+
     async def bark(
         self,
         volume: int = 5,
@@ -59,6 +75,27 @@ class Dog(Animal):
         pass
 
 
+class RoboDog(
+    Dog,
+    Robot,
+):
+    """Multiple inheritance."""
+
+    pass
+
+
+class Outer:
+    """Outer class."""
+
+    value = 100
+
+    class Inner:
+        """Nested class."""
+
+        def hello(self):
+            return "hello"
+
+
 def helper(
     x: int,
     y: int = 10,
@@ -68,7 +105,48 @@ def helper(
     return x + y
 
 
+def outer():
+    """Outer function."""
+
+    def inner():
+        return "nested"
+
+    return inner()
+
+
 async def fetch_data(
     url: str,
 ):
     return {}
+
+
+@staticmethod
+def top_level_static():
+    return True
+
+
+@classmethod
+def top_level_classmethod(cls):
+    return cls
+
+
+@property
+def top_level_property():
+    return "property"
+
+
+def route(path: str):
+    def decorator(func):
+        return func
+    return decorator
+
+
+@route("/users")
+def get_users():
+    """Decorator with arguments."""
+
+    return []
+
+
+if __name__ == "__main__":
+    helper(1)

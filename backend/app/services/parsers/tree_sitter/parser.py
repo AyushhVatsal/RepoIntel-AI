@@ -8,6 +8,7 @@ from .query_extractor import QueryExtractor
 from .service import TreeSitterService
 from .symbol_extractor import SymbolExtractor
 
+from .grammar_registry import GrammarRegistry
 
 class TreeSitterParser:
     """
@@ -59,11 +60,23 @@ class TreeSitterParser:
             tree=tree,
             config=language_config,
         )
+        print("=" * 80)
+        print("CAPTURES")
+        print("=" * 80)
+
+        for capture in captures:
+            print(capture)
+
+
+        grammar_config = GrammarRegistry.get(
+            repository_file.language,
+        )
 
         symbols = SymbolExtractor.extract(
             captures=captures,
             source_code=source_code,
             language_config=language_config,
+            grammar_config=grammar_config,
         )
 
         return ParsedDocument(

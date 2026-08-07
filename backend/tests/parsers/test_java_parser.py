@@ -1,0 +1,58 @@
+from pathlib import Path
+from datetime import datetime
+
+from app.models.repository_file import (
+    FileCategory,
+    LanguageSupportTier,
+)
+from app.schemas.repository_file import RepositoryFileResponse
+from app.services.parsers.models.file_content import FileContent
+from app.services.parsers.tree_sitter.parser import TreeSitterParser
+
+def main() -> None:
+
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "java"
+        / "Animal.java"
+    )
+
+    source = fixture_path.read_bytes()
+
+    repository_file = RepositoryFileResponse(
+        id=1,
+        repository_id=1,
+
+        path="tests/parsers/fixtures/java/Animal.java",
+        relative_path="Animal.java",
+        filename="Animal.java",
+
+        extension=".java",
+        language="java",
+
+        category=FileCategory.SOURCE,
+        support_tier=LanguageSupportTier.TIER_1,
+
+        size=len(source),
+
+        sha256_hash=None,
+        is_binary=False,
+
+        last_modified=None,
+        created_at=datetime.now(),
+    )
+
+    file_content = FileContent(
+        repository_file=repository_file,
+        content=source,
+    )
+        
+    document = TreeSitterParser.parse(
+        file_content,
+    )
+
+    print(document)
+
+if __name__ == "__main__":
+    main()

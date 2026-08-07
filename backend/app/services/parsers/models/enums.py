@@ -19,6 +19,8 @@ class SymbolType(str, Enum):
     MODULE = "module"
     PACKAGE = "package"
 
+    CONSTRUCTOR = "constructor"
+
 
 class Visibility(str, Enum):
     PUBLIC = "public"

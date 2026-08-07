@@ -3,9 +3,9 @@ from __future__ import annotations
 
 class CaptureNames:
     """
-    Standardized Tree-sitter capture names.
+    Standardized semantic Tree-sitter capture names.
 
-    These names form the contract between:
+    These names form the contract between
 
         *.scm Queries
                 ↓
@@ -13,9 +13,40 @@ class CaptureNames:
                 ↓
         SymbolExtractor
 
-    Every language-specific query must emit these standardized
-    capture names so the SymbolExtractor remains language-agnostic.
+    Every Tier 1 language must emit these semantic capture
+    names regardless of its underlying grammar.
     """
+
+
+    # ==========================================================
+    # Interfaces
+    # ==========================================================
+
+    INTERFACE_DEFINITION = "interface.definition"
+
+    INTERFACE_NAME = "interface.name"
+
+    # ==========================================================
+    # Enums
+    # ==========================================================
+
+    ENUM_DEFINITION = "enum.definition"
+
+    ENUM_NAME = "enum.name"
+
+    # ==========================================================
+    # Constructors
+    # ==========================================================
+
+    CONSTRUCTOR_DEFINITION = "constructor.definition"
+
+    CONSTRUCTOR_NAME = "constructor.name"
+
+    # ==========================================================
+    # Namespace
+    # ==========================================================
+
+    NAMESPACE_NAME = "namespace.name"
 
     # ==========================================================
     # Imports
@@ -31,8 +62,10 @@ class CaptureNames:
 
     IMPORT_ALIAS = "import.alias"
 
+    IMPORT_STATIC = "import.static"
+
     # ==========================================================
-    # Classes
+    # Classes / Types
     # ==========================================================
 
     CLASS_DEFINITION = "class.definition"
@@ -42,7 +75,7 @@ class CaptureNames:
     CLASS_BASE = "class.base"
 
     # ==========================================================
-    # Functions
+    # Functions / Methods
     # ==========================================================
 
     FUNCTION_DEFINITION = "function.definition"
@@ -51,32 +84,44 @@ class CaptureNames:
 
     FUNCTION_RETURN_TYPE = "function.return_type"
 
+    FUNCTION_ASYNC = "function.async"
+
+    FUNCTION_GENERATOR = "function.generator"
+
     # ==========================================================
     # Parameters
     # ==========================================================
 
     PARAMETER_NAME = "parameter.name"
 
-    # ==========================================================
-    # Decorators
-    # ==========================================================
+    PARAMETER_TYPE = "parameter.type"
 
-    DECORATOR_NAME = "decorator.name"
+    PARAMETER_DEFAULT = "parameter.default"
 
     # ==========================================================
-    # Variables
+    # Annotations
+    # ==========================================================
+
+    ANNOTATION_NAME = "annotation.name"
+
+    # ==========================================================
+    # Variables / Fields
     # ==========================================================
 
     VARIABLE_DEFINITION = "variable.definition"
 
     VARIABLE_NAME = "variable.name"
 
+    VARIABLE_TYPE = "variable.type"
+
+    VARIABLE_VALUE = "variable.value"
+
     # ==========================================================
-    # Docstrings
+    # Documentation
     # ==========================================================
 
-    MODULE_DOCSTRING = "docstring.module"
+    MODULE_DOCUMENTATION = "documentation.module"
 
-    CLASS_DOCSTRING = "docstring.class"
+    CLASS_DOCUMENTATION = "documentation.class"
 
-    FUNCTION_DOCSTRING = "docstring.function"
+    FUNCTION_DOCUMENTATION = "documentation.function"
