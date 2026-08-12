@@ -17,12 +17,12 @@ class BaseLanguageProcessor(ABC):
     @abstractmethod
     def process(
         cls,
-        document: Any,
+        symbols: list,
         grouped: dict,
         source_code: str,
-    ) -> Any:
+    ) -> list:
         """
-        Enhance the parsed document with language-specific
-        information and return the updated document.
+        Enhance the parsed symbols with language-specific
+        information and return the updated symbols list.
         """
         raise NotImplementedError

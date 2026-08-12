@@ -52,7 +52,27 @@ class JavaScriptProcessor(BaseLanguageProcessor):
         grouped: dict,
         source_code: str,
     ) -> None:
-        pass
+        """
+        Handle arrow functions and function expressions assigned to variables.
+        Example: const myFunc = () => {}
+
+        These are captured as variables but should be marked as functions.
+        """
+        from app.services.parsers.models.enums import SymbolType
+
+        for symbol in symbols:
+            if symbol.type == SymbolType.VARIABLE:
+                # Check if variable value looks like a function (arrow or function expression)
+                if symbol.value and isinstance(symbol.value, str):
+                    value_stripped = symbol.value.strip()
+                    # Arrow function patterns: () => {}, (a, b) => {}, x => {}
+                    # Function expression: function() {}, function name() {}
+                    if ('=>' in value_stripped or
+                        value_stripped.startswith('function') or
+                        value_stripped.startswith('async')):
+                        # Keep as variable but add metadata indicating it's a function
+                        if 'function_like' not in symbol.modifiers:
+                            symbol.modifiers.add('function_like')
 
     @classmethod
     def _process_object_functions(
@@ -61,6 +81,14 @@ class JavaScriptProcessor(BaseLanguageProcessor):
         grouped: dict,
         source_code: str,
     ) -> None:
+        """
+        Handle methods defined in object literals.
+        Example: const obj = { method() {}, asyncMethod() {} }
+
+        These are typically captured as variables but contain function definitions.
+        """
+        # Note: Most object methods are already captured by method_definition in queries
+        # This is a placeholder for edge cases if needed
         pass
 
     @classmethod
@@ -69,7 +97,19 @@ class JavaScriptProcessor(BaseLanguageProcessor):
         symbols: list,
         grouped: dict,
     ) -> None:
-        pass
+        """
+        Mark functions as async based on their source code.
+        Example: async function fetchData() {}
+
+        Tree-sitter should capture this, but this ensures consistency.
+        """
+        from app.services.parsers.models.enums import SymbolType
+
+        for symbol in symbols:
+            if symbol.type in (SymbolType.FUNCTION, SymbolType.METHOD):
+                # Check if 'async' modifier exists or add it
+                if 'async' in symbol.modifiers:
+                    symbol.is_async = True
 
     @classmethod
     def _process_generators(
@@ -77,7 +117,19 @@ class JavaScriptProcessor(BaseLanguageProcessor):
         symbols: list,
         grouped: dict,
     ) -> None:
-        pass
+        """
+        Mark functions as generators based on their source code.
+        Example: function* generator() {}
+
+        Generators have function* syntax in JavaScript.
+        """
+        from app.services.parsers.models.enums import SymbolType
+
+        for symbol in symbols:
+            if symbol.type in (SymbolType.FUNCTION, SymbolType.METHOD):
+                # Check if 'generator' modifier exists or add it
+                if 'generator' in symbol.modifiers or '*' in symbol.modifiers:
+                    symbol.is_generator = True
 
     @classmethod
     def _process_exports(
@@ -85,4 +137,15 @@ class JavaScriptProcessor(BaseLanguageProcessor):
         symbols: list,
         grouped: dict,
     ) -> None:
-        pass
+        """
+        Mark symbols as exported for ES6 export statements.
+        Example: export const value = 42; export default MyClass;
+
+        Adds 'exported' or 'default_export' to modifiers.
+        """
+        # Check if symbols have 'export' keyword in modifiers
+        for symbol in symbols:
+            if 'export' in symbol.modifiers:
+                symbol.modifiers.add('exported')
+            if 'default' in symbol.modifiers:
+                symbol.modifiers.add('default_export')

@@ -62,13 +62,6 @@ class TreeSitterParser:
             tree=tree,
             config=language_config,
         )
-        print("=" * 80)
-        print("CAPTURES")
-        print("=" * 80)
-
-        for capture in captures:
-            print(capture)
-
 
         grammar_config = GrammarRegistry.get(
             repository_file.language,
@@ -83,6 +76,13 @@ class TreeSitterParser:
 
         if repository_file.language == "javascript":
             symbols = JavaScriptProcessor.process(
+                symbols=symbols,
+                grouped=grouped,
+                source_code=source_code,
+            )
+        elif repository_file.language == "typescript":
+            from .languages.typescript import TypeScriptProcessor
+            symbols = TypeScriptProcessor.process(
                 symbols=symbols,
                 grouped=grouped,
                 source_code=source_code,
