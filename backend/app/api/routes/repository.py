@@ -25,6 +25,8 @@ from app.schemas.repository import (
     RepositoryResponse,
 )
 from app.schemas.repository_file import RepositoryFileResponse
+from app.schemas.repository_symbol import RepositorySymbolResponse
+from app.crud.repository_symbol import repository_symbol_crud
 from app.services.repository.repository_service import (
     repository_service,
 )
@@ -139,6 +141,43 @@ def list_repository_files(
             db=db,
             repository_id=repository_id,
             owner_id=current_user.id,
+        )
+
+    except RepositoryNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        )
+
+
+@router.get(
+    "/{repository_id}/symbols",
+    response_model=list[RepositorySymbolResponse],
+)
+def list_repository_symbols(
+    repository_id: int,
+    symbol_type: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+) -> list[RepositorySymbolResponse]:
+    """
+    Get all symbols for a repository.
+
+    Optionally filter by symbol_type (import, class, function, method, variable).
+    """
+    try:
+        # Verify repository ownership
+        repository_service.get_repository(
+            db=db,
+            repository_id=repository_id,
+            owner_id=current_user.id,
+        )
+
+        # Get symbols
+        return repository_symbol_crud.get_by_repository(
+            db=db,
+            repository_id=repository_id,
+            symbol_type=symbol_type,
         )
 
     except RepositoryNotFoundError as exc:

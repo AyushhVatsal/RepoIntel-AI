@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.crud.repository import repository_crud
 from app.crud.repository_file import repository_file_crud
+from app.crud.repository_symbol import repository_symbol_crud
 from app.exceptions.repository import (
     RepositoryAlreadyExistsError,
     RepositoryNotFoundError,
@@ -14,6 +15,9 @@ from app.exceptions.repository import (
 from app.models.repository import RepositoryStatus
 from app.models.repository_file import LanguageSupportTier
 from app.schemas.repository import RepositoryCreate
+from app.services.parsers.models.file_content import FileContent
+from app.services.parsers.symbol_converter import SymbolConverter
+from app.services.parsers.tree_sitter.parser import TreeSitterParser
 from app.services.repository.clone_service import clone_service
 from app.services.repository.framework_detector import (
     framework_detection_service
@@ -60,26 +64,6 @@ class RepositoryService:
             github_url=str(repository_in.github_url),
         )
 
-        from sqlalchemy import text
-
-        print(
-            "Current DB:",
-            db.execute(
-                text("SELECT current_database()")
-            ).scalar(),
-        )
-
-        print(
-            "Columns:",
-            db.execute(
-                text("""
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_name = 'repositories'
-                ORDER BY ordinal_position
-                """)
-            ).fetchall(),
-        )
         if existing_repository is not None:
             raise RepositoryAlreadyExistsError(
                 "Repository has already been indexed."
@@ -156,10 +140,62 @@ class RepositoryService:
             # Persist supported files
             # -----------------------------------------------------
 
-            repository_file_crud.create_many(
+            persisted_files = repository_file_crud.create_many(
                 db=db,
                 files=supported_repository_files,
             )
+
+            # -----------------------------------------------------
+            # Parse and persist symbols for Tier 1 files
+            # -----------------------------------------------------
+
+            repository_crud.update(
+                db=db,
+                repository=repository,
+                status=RepositoryStatus.PARSING,
+            )
+
+            tier1_files = [
+                f for f in persisted_files
+                if f.support_tier == LanguageSupportTier.TIER_1
+            ]
+
+            for repo_file in tier1_files:
+                try:
+                    # Read file content
+                    file_path = Path(repo_file.path)
+                    if not file_path.exists():
+                        continue
+
+                    content = file_path.read_bytes()
+
+                    # Create FileContent object for parser
+                    file_content = FileContent(
+                        repository_file=repo_file,
+                        content=content,
+                    )
+
+                    # Parse file
+                    parsed_document = TreeSitterParser.parse(file_content)
+
+                    # Convert symbols to database schemas
+                    db_symbols = SymbolConverter.convert_all(
+                        symbols=parsed_document.symbols,
+                        repository_id=repository.id,
+                        file_id=repo_file.id,
+                    )
+
+                    # Persist symbols
+                    if db_symbols:
+                        repository_symbol_crud.create_many(
+                            db=db,
+                            symbols=db_symbols,
+                        )
+
+                except Exception as e:
+                    # Log parsing errors but don't fail indexing
+                    print(f"Error parsing {repo_file.path}: {e}")
+                    continue
 
             # -----------------------------------------------------
             # Detect framework
@@ -310,6 +346,12 @@ class RepositoryService:
         """
         Clean up all resources created during a failed indexing operation.
         """
+
+        # Delete symbols
+        repository_symbol_crud.delete_by_repository(
+            db=db,
+            repository_id=repository.id,
+        )
 
         # Delete indexed files
         repository_file_crud.delete_by_repository(

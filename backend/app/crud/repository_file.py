@@ -32,6 +32,10 @@ class RepositoryFileCRUD:
         db.add_all(db_files)
         db.commit()
 
+        # Refresh to get database IDs
+        for db_file in db_files:
+            db.refresh(db_file)
+
         return db_files
 
     def get(
