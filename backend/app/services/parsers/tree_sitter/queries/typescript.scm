@@ -34,21 +34,8 @@
   name: (type_identifier) @class.name
 )
 
-(class_heritage
-  (identifier) @class.base
-)
-
-(class_heritage
-  (extends_clause
-    (type_identifier) @class.base
-  )
-)
-
-(class_heritage
-  (implements_clause
-    (type_identifier) @class.interface
-  )
-)
+; Simplified - tree-sitter may not have class_heritage node in TS
+; Will capture via other means if needed
 
 ; ==========================================================
 ; Interfaces

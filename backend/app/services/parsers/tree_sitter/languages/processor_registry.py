@@ -1,14 +1,10 @@
 from .javascript import JavaScriptProcessor
-from .python import PythonProcessor
-from .java import JavaProcessor
 from .typescript import TypeScriptProcessor
 
 
 class ProcessorRegistry:
 
     _registry = {
-        "python": PythonProcessor,
-        "java": JavaProcessor,
         "javascript": JavaScriptProcessor,
         "typescript": TypeScriptProcessor,
     }
@@ -18,4 +14,4 @@ class ProcessorRegistry:
         cls,
         language: str,
     ):
-        return cls._registry[language.lower()]
+        return cls._registry.get(language.lower())

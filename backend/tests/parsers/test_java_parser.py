@@ -1,5 +1,9 @@
+import sys
 from pathlib import Path
 from datetime import datetime
+
+# Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from app.models.repository_file import (
     FileCategory,
@@ -15,7 +19,7 @@ def main() -> None:
         Path(__file__).parent
         / "fixtures"
         / "java"
-        / "Animal.java"
+        / "sample.java"
     )
 
     source = fixture_path.read_bytes()
@@ -24,9 +28,9 @@ def main() -> None:
         id=1,
         repository_id=1,
 
-        path="tests/parsers/fixtures/java/Animal.java",
-        relative_path="Animal.java",
-        filename="Animal.java",
+        path="tests/parsers/fixtures/java/sample.java",
+        relative_path="sample.java",
+        filename="sample.java",
 
         extension=".java",
         language="java",
@@ -47,7 +51,7 @@ def main() -> None:
         repository_file=repository_file,
         content=source,
     )
-        
+
     document = TreeSitterParser.parse(
         file_content,
     )

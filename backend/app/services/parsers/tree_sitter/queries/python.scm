@@ -25,32 +25,6 @@
 ) @import.statement
 
 ; ==========================================================
-; Imports
-; ==========================================================
-
-(import_statement
-  name: (dotted_name) @import.module
-) @import.statement
-
-(import_statement
-  name: (aliased_import
-    name: (dotted_name) @import.module
-    alias: (identifier) @import.alias)
-) @import.statement
-
-(import_from_statement
-  module_name: (dotted_name)? @import.from
-  name: (dotted_name) @import.name
-) @import.statement
-
-(import_from_statement
-  module_name: (dotted_name)? @import.from
-  name: (aliased_import
-    name: (dotted_name) @import.name
-    alias: (identifier) @import.alias)
-) @import.statement
-
-; ==========================================================
 ; Classes
 ; ==========================================================
 

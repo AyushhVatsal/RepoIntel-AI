@@ -1255,7 +1255,7 @@ class SymbolExtractor:
                 value_node,
                 grammar_config,
             ):
-                print("Function Value:", variable_name)    
+                pass
 
             value = (
                 cls._text(value_node, source_code)
