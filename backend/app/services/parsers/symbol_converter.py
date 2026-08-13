@@ -51,8 +51,10 @@ class SymbolConverter:
                 "parameters": [
                     {
                         "name": p.name,
-                        "type": p.type_annotation,
+                        "type_hint": p.type_hint,
                         "default_value": p.default_value,
+                        "is_variadic": p.is_variadic,
+                        "is_keyword_only": p.is_keyword_only,
                     }
                     for p in symbol.parameters
                 ],
@@ -66,14 +68,13 @@ class SymbolConverter:
             metadata.update({
                 "base_types": symbol.base_types,
                 "interfaces": symbol.interfaces,
-                "decorators": symbol.decorators,
                 "method_count": len(symbol.methods),
                 "field_count": len(symbol.fields),
             })
 
         elif isinstance(symbol, VariableSymbol):
             metadata.update({
-                "type_annotation": symbol.type_annotation,
+                "type_hint": symbol.type_hint,
                 "value": symbol.value,
                 "is_constant": symbol.is_constant,
             })
@@ -81,9 +82,9 @@ class SymbolConverter:
         elif isinstance(symbol, ImportSymbol):
             metadata.update({
                 "module": symbol.module,
-                "imported_names": symbol.imported_names,
+                "symbol": symbol.symbol,
                 "alias": symbol.alias,
-                "is_from_import": symbol.is_from_import,
+                "is_relative": symbol.is_relative,
             })
 
         return metadata

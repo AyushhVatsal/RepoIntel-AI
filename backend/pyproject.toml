@@ -25,3 +25,8 @@ dependencies = [
     "tree-sitter-typescript>=0.23.2",
     "uvicorn[standard]>=0.51.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
