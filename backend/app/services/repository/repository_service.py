@@ -62,6 +62,7 @@ class RepositoryService:
         existing_repository = repository_crud.get_by_github_url(
             db=db,
             github_url=str(repository_in.github_url),
+            owner_id=owner_id,
         )
 
         if existing_repository is not None:
@@ -145,6 +146,13 @@ class RepositoryService:
                 files=supported_repository_files,
             )
 
+            print(
+                f"[FILES PERSISTED] "
+                f"scanned={len(all_repository_files)} "
+                f"supported={len(supported_repository_files)} "
+                f"persisted={len(persisted_files)}"
+            )
+
             # -----------------------------------------------------
             # Parse and persist symbols for Tier 1 files
             # -----------------------------------------------------
@@ -160,7 +168,12 @@ class RepositoryService:
                 if f.support_tier == LanguageSupportTier.TIER_1
             ]
 
-            for repo_file in tier1_files:
+            for index, repo_file in enumerate(tier1_files, start=1):
+                print(
+                    f"[PARSING {index}/{len(tier1_files)}] "
+                    f"{repo_file.relative_path}"
+                )
+
                 try:
                     # Read file content
                     file_path = Path(repo_file.path)
@@ -201,6 +214,8 @@ class RepositoryService:
             # Detect framework
             # -----------------------------------------------------
 
+            print("[PARSING COMPLETE] Moving to framework detection")
+
             framework_result = framework_detection_service.detect(
                 clone_path,
             )
@@ -217,6 +232,8 @@ class RepositoryService:
             # Final repository update
             # -----------------------------------------------------
 
+            print("[INDEXING COMPLETE] Updating repository to INDEXED")
+
             repository = repository_crud.update(
                 db=db,
                 repository=repository,
@@ -227,7 +244,11 @@ class RepositoryService:
 
             return repository
 
-        except Exception:
+        except Exception as e:
+            import traceback
+
+            print(f"INDEXING FAILED: {e}")
+            traceback.print_exc()
 
             self._cleanup_failed_indexing(
                 db=db,

@@ -35,10 +35,14 @@ class RepositoryCRUD:
         self,
         db: Session,
         github_url: str,
+        owner_id: int,
     ) -> Repository | None:
         stmt = (
             select(Repository)
-            .where(Repository.github_url == github_url)
+            .where(
+                Repository.github_url == github_url,
+                Repository.owner_id == owner_id,
+            )
         )
 
         return db.scalar(stmt)

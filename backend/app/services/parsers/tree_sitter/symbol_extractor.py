@@ -1196,10 +1196,10 @@ class SymbolExtractor:
 
         for variable_node in definitions:
 
-            name_node = cls._child_by_field_name(variable_node, grammar_config.variable_left_field,)
-
-            # If the grammar returns a declarator node instead of the
-            # identifier directly (Java/JS/TS), descend once.
+            name_node = cls._child_by_field_name(
+                variable_node,
+                grammar_config.variable_left_field,
+            )
 
             if (
                 name_node is not None
@@ -1216,7 +1216,10 @@ class SymbolExtractor:
             if name_node is None:
                 continue
 
-            variable_name = cls._text(name_node, source_code)
+            variable_name = cls._text(
+                name_node,
+                source_code,
+            )
 
             type_hint = None
 
@@ -1228,34 +1231,16 @@ class SymbolExtractor:
                     node.start_byte >= variable_node.start_byte
                     and node.end_byte <= variable_node.end_byte
                 ):
-                    type_hint = cls._text(node, source_code)
+                    type_hint = cls._text(
+                        node,
+                        source_code,
+                    )
                     break
 
-            value_parent = cls._child_by_field_name(
+            value_node = cls._child_by_field_name(
                 variable_node,
-                grammar_config.variable_left_field,
+                grammar_config.variable_right_field,
             )
-
-            if (
-                value_parent is not None
-                and value_parent.child_by_field_name(
-                    grammar_config.variable_right_field
-                ) is not None
-            ):
-                value_node = value_parent.child_by_field_name(
-                    grammar_config.variable_right_field
-                )
-            else:
-                value_node = cls._child_by_field_name(
-                    variable_node,
-                    grammar_config.variable_right_field,
-                )
-
-            if cls._is_function_value(
-                value_node,
-                grammar_config,
-            ):
-                pass
 
             value = (
                 cls._text(value_node, source_code)
@@ -1283,30 +1268,30 @@ class SymbolExtractor:
             )
 
             variable_symbol = VariableSymbol(
-            symbol_id=cls._symbol_id(
-                language_config.language,
-                variable_name,
-            ),
-            name=variable_name,
-            qualified_name=variable_name,
-            type=SymbolType.VARIABLE,
-            language=language_config.language,
-            location=cls._location(variable_node),
-            type_hint=type_hint,
-            value=value,
-            is_constant=is_constant,
-            parent_symbol=(
-                parent_class_symbol.symbol_id
-                if parent_class_symbol is not None
-                else None
-            ),
-        )
-
-        if parent_class_symbol is not None:
-            parent_class_symbol.fields.append(
-                variable_symbol
+                symbol_id=cls._symbol_id(
+                    language_config.language,
+                    variable_name,
+                ),
+                name=variable_name,
+                qualified_name=variable_name,
+                type=SymbolType.VARIABLE,
+                language=language_config.language,
+                location=cls._location(variable_node),
+                type_hint=type_hint,
+                value=value,
+                is_constant=is_constant,
+                parent_symbol=(
+                    parent_class_symbol.symbol_id
+                    if parent_class_symbol is not None
+                    else None
+                ),
             )
-        else:
-            variables.append(variable_symbol)
+
+            if parent_class_symbol is not None:
+                parent_class_symbol.fields.append(
+                    variable_symbol
+                )
+            else:
+                variables.append(variable_symbol)
 
         return variables

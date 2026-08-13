@@ -49,6 +49,13 @@ class TreeSitterParser:
             errors="replace",
         )
 
+        if not source_code.strip():
+            return ParsedDocument(
+                repository_file=repository_file,
+                source_code=source_code,
+                symbols=[],
+            )
+
         language_config = LanguageRegistry.get(
             repository_file.language,
         )
