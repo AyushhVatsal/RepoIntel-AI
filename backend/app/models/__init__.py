@@ -4,6 +4,7 @@ from app.models.repository_symbol import RepositorySymbol
 from app.models.user import User
 from app.models.conversation import Conversation
 from app.models.message import Message
+from app.models.chunk import Chunk
 
 __all__ = [
     "User",
@@ -12,4 +13,5 @@ __all__ = [
     "RepositorySymbol",
     "Conversation",
     "Message",
+    "Chunk"
 ]
