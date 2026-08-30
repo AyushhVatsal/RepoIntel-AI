@@ -349,9 +349,10 @@ class SymbolExtractor:
         source_code: str,
     ) -> str:
 
-        return source_code[
-            node.start_byte: node.end_byte
-        ]
+        return node.text.decode(
+            "utf-8",
+            errors="replace",
+        )
 
     @staticmethod
     def _location(

@@ -206,10 +206,14 @@ class RepositoryService:
                         )
 
                 except Exception as e:
-                    # Log parsing errors but don't fail indexing
-                    print(f"Error parsing {repo_file.path}: {e}")
-                    continue
+                    # Roll back the failed transaction so the session
+                    # can continue processing subsequent files.
+                    db.rollback()
 
+                    print(
+                        f"Error parsing {repo_file.relative_path}: {e}"
+                    )
+                    continue
             # -----------------------------------------------------
             # Detect framework
             # -----------------------------------------------------
