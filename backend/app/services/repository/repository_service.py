@@ -5,6 +5,7 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
+from app.crud.chunk import chunk_crud
 from app.crud.repository import repository_crud
 from app.crud.repository_file import repository_file_crud
 from app.crud.repository_symbol import repository_symbol_crud
@@ -15,19 +16,20 @@ from app.exceptions.repository import (
 from app.models.repository import RepositoryStatus
 from app.models.repository_file import LanguageSupportTier
 from app.schemas.repository import RepositoryCreate
+from app.services.chunking.service import ChunkingService
+from app.services.embedding.models.embedding_config import EmbeddingConfig
+from app.services.embedding.providers.local import LocalEmbeddingProvider
+from app.services.embedding.service import EmbeddingService
 from app.services.parsers.models.file_content import FileContent
+from app.services.parsers.parser_service import ParserService
 from app.services.parsers.symbol_converter import SymbolConverter
-from app.services.parsers.tree_sitter.parser import TreeSitterParser
 from app.services.repository.clone_service import clone_service
 from app.services.repository.framework_detector import (
-    framework_detection_service
+    framework_detection_service,
 )
-from app.services.repository.metadata_service import (
-    metadata_service,
-)
-from app.services.repository.scanner_service import (
-    scanner_service,
-)
+from app.services.repository.metadata_service import metadata_service
+from app.services.repository.scanner_service import scanner_service
+from app.services.vector_store.service import VectorStoreService
 
 
 class RepositoryService:
@@ -39,11 +41,45 @@ class RepositoryService:
     - Create repository record
     - Clone repository
     - Scan repository
+    - Parse supported files
+    - Persist repository symbols
+    - Generate code-aware chunks
+    - Persist chunks
+    - Generate embeddings
+    - Persist embeddings
     - Detect framework
     - Calculate metadata
-    - Persist repository files
     - Update repository status
     """
+
+    def __init__(
+        self,
+        parser_service: ParserService | None = None,
+        chunking_service: ChunkingService | None = None,
+        embedding_service: EmbeddingService | None = None,
+    ) -> None:
+        """
+        Initialize repository indexing dependencies.
+
+        Services can be injected for testing or alternative
+        implementations. Production defaults use the existing
+        parser, chunker, and local BGE embedding pipeline.
+        """
+
+        self.parser_service = parser_service or ParserService()
+        self.chunking_service = chunking_service or ChunkingService()
+
+        if embedding_service is None:
+            embedding_config = EmbeddingConfig()
+            embedding_provider = LocalEmbeddingProvider(
+                model_name=embedding_config.model,
+            )
+            embedding_service = EmbeddingService(
+                provider=embedding_provider,
+                config=embedding_config,
+            )
+
+        self.embedding_service = embedding_service
 
     def index_repository(
         self,
@@ -52,7 +88,7 @@ class RepositoryService:
         repository_in: RepositoryCreate,
     ):
         """
-        Clone, scan and index a repository.
+        Clone, scan, parse, chunk, embed and index a repository.
         """
 
         # ---------------------------------------------------------
@@ -84,7 +120,6 @@ class RepositoryService:
         )
 
         try:
-
             # -----------------------------------------------------
             # Clone repository
             # -----------------------------------------------------
@@ -154,7 +189,7 @@ class RepositoryService:
             )
 
             # -----------------------------------------------------
-            # Parse and persist symbols for Tier 1 files
+            # Parse, chunk and embed supported files
             # -----------------------------------------------------
 
             repository_crud.update(
@@ -163,62 +198,195 @@ class RepositoryService:
                 status=RepositoryStatus.PARSING,
             )
 
-            tier1_files = [
-                f for f in persisted_files
-                if f.support_tier == LanguageSupportTier.TIER_1
-            ]
-
-            for index, repo_file in enumerate(tier1_files, start=1):
+            for index, repo_file in enumerate(
+                persisted_files,
+                start=1,
+            ):
                 print(
-                    f"[PARSING {index}/{len(tier1_files)}] "
+                    f"[PARSING {index}/{len(persisted_files)}] "
                     f"{repo_file.relative_path}"
                 )
 
                 try:
+                    # -------------------------------------------------
                     # Read file content
+                    # -------------------------------------------------
+
                     file_path = Path(repo_file.path)
+
                     if not file_path.exists():
+                        print(
+                            f"File does not exist: "
+                            f"{repo_file.relative_path}"
+                        )
                         continue
 
                     content = file_path.read_bytes()
 
-                    # Create FileContent object for parser
+                    # -------------------------------------------------
+                    # Create parser input
+                    # -------------------------------------------------
+
                     file_content = FileContent(
                         repository_file=repo_file,
                         content=content,
                     )
 
+                    # -------------------------------------------------
                     # Parse file
-                    parsed_document = TreeSitterParser.parse(file_content)
+                    #
+                    # ParserService selects:
+                    # Tier 1 -> Tree-sitter
+                    # Tier 0 -> Generic parser
+                    # -------------------------------------------------
 
-                    # Convert symbols to database schemas
-                    db_symbols = SymbolConverter.convert_all(
-                        symbols=parsed_document.symbols,
-                        repository_id=repository.id,
-                        file_id=repo_file.id,
+                    parsed_document = self.parser_service.parse(
+                        file_content,
                     )
 
-                    # Persist symbols
-                    if db_symbols:
-                        repository_symbol_crud.create_many(
-                            db=db,
-                            symbols=db_symbols,
+                    # -------------------------------------------------
+                    # Persist symbols for Tier 1 files
+                    # -------------------------------------------------
+
+                    if (
+                        repo_file.support_tier
+                        == LanguageSupportTier.TIER_1
+                    ):
+                        db_symbols = SymbolConverter.convert_all(
+                            symbols=parsed_document.symbols,
+                            repository_id=repository.id,
+                            file_id=repo_file.id,
                         )
 
+                        if db_symbols:
+                            repository_symbol_crud.create_many(
+                                db=db,
+                                symbols=db_symbols,
+                            )
+
+                    # -------------------------------------------------
+                    # Generate code-aware chunks
+                    # -------------------------------------------------
+
+                    chunks = self.chunking_service.chunk(
+                        parsed_document,
+                        support_tier=repo_file.support_tier,
+                    )
+
+                    if not chunks:
+                        print(
+                            f"[NO CHUNKS] "
+                            f"{repo_file.relative_path}"
+                        )
+                        continue
+
+                    # -------------------------------------------------
+                    # Persist chunks
+                    # -------------------------------------------------
+
+                    persisted_chunks = chunk_crud.create_many(
+                        db=db,
+                        chunks=chunks,
+                    )
+
+                    print(
+                        f"[CHUNKS] "
+                        f"{repo_file.relative_path} "
+                        f"count={len(persisted_chunks)}"
+                    )
+
+                    # -------------------------------------------------
+                    # Generate embeddings
+                    # -------------------------------------------------
+
+                    embedding_results = self.embedding_service.embed(
+                        chunks,
+                    )
+
+                    if len(embedding_results) != len(
+                        persisted_chunks
+                    ):
+                        raise RuntimeError(
+                            "Embedding result count does not match "
+                            "persisted chunk count."
+                        )
+
+                    # -------------------------------------------------
+                    # Map persisted chunks by file/chunk index
+                    # -------------------------------------------------
+
+                    chunk_map = {
+                        (
+                            chunk.file_id,
+                            chunk.chunk_index,
+                        ): chunk
+                        for chunk in persisted_chunks
+                    }
+
+                    # -------------------------------------------------
+                    # Persist embeddings in vector storage
+                    # -------------------------------------------------
+
+                    vector_store_service = VectorStoreService(
+                        db=db,
+                    )
+
+                    for embedding_result in embedding_results:
+                        chunk = chunk_map.get(
+                            (
+                                embedding_result.file_id,
+                                embedding_result.chunk_index,
+                            )
+                        )
+
+                        if chunk is None:
+                            raise RuntimeError(
+                                "Could not match embedding result "
+                                f"to persisted chunk: "
+                                f"file_id="
+                                f"{embedding_result.file_id}, "
+                                f"chunk_index="
+                                f"{embedding_result.chunk_index}"
+                            )
+
+                        vector_store_service.store_embedding(
+                            chunk_id=chunk.id,
+                            model=embedding_result.model,
+                            dimensions=embedding_result.dimensions,
+                            embedding=embedding_result.vector,
+                        )
+
+                    # -------------------------------------------------
+                    # Commit embeddings for this file
+                    # -------------------------------------------------
+
+                    db.commit()
+
+                    print(
+                        f"[EMBEDDED] "
+                        f"{repo_file.relative_path} "
+                        f"count={len(embedding_results)}"
+                    )
+
                 except Exception as e:
-                    # Roll back the failed transaction so the session
-                    # can continue processing subsequent files.
+                    # Roll back the failed file transaction so the
+                    # session can continue processing subsequent files.
                     db.rollback()
 
                     print(
-                        f"Error parsing {repo_file.relative_path}: {e}"
+                        f"Error indexing "
+                        f"{repo_file.relative_path}: {e}"
                     )
-                    continue
+                    raise
+
             # -----------------------------------------------------
-            # Detect framework
+            # Framework detection
             # -----------------------------------------------------
 
-            print("[PARSING COMPLETE] Moving to framework detection")
+            print(
+                "[PARSING / CHUNKING / EMBEDDING COMPLETE] "
+                "Moving to framework detection"
+            )
 
             framework_result = framework_detection_service.detect(
                 clone_path,
@@ -236,7 +404,10 @@ class RepositoryService:
             # Final repository update
             # -----------------------------------------------------
 
-            print("[INDEXING COMPLETE] Updating repository to INDEXED")
+            print(
+                "[INDEXING COMPLETE] "
+                "Updating repository to INDEXED"
+            )
 
             repository = repository_crud.update(
                 db=db,
@@ -318,13 +489,22 @@ class RepositoryService:
             owner_id=owner_id,
         )
 
-        # Delete indexed files
+        # Delete indexed files.
+        #
+        # The database FK cascade handles:
+        #
+        # RepositoryFile
+        #      ↓
+        # Chunk
+        #      ↓
+        # Embedding
+        #
         repository_file_crud.delete_by_repository(
             db=db,
             repository_id=repository.id,
         )
 
-        # Delete cloned repository
+        # Delete cloned repository.
         try:
             if repository.clone_path:
                 clone_path = Path(repository.clone_path)
@@ -337,11 +517,12 @@ class RepositoryService:
         except Exception:
             pass
 
-        # Delete repository
+        # Delete repository.
         repository_crud.delete(
             db=db,
             repository=repository,
         )
+
     def list_repository_files(
         self,
         db: Session,
@@ -372,19 +553,21 @@ class RepositoryService:
         Clean up all resources created during a failed indexing operation.
         """
 
-        # Delete symbols
+        # Delete symbols.
         repository_symbol_crud.delete_by_repository(
             db=db,
             repository_id=repository.id,
         )
 
-        # Delete indexed files
+        # Delete indexed files.
+        #
+        # FK cascades remove associated chunks and embeddings.
         repository_file_crud.delete_by_repository(
             db=db,
             repository_id=repository.id,
         )
 
-        # Delete cloned repository
+        # Delete cloned repository.
         try:
             if repository.clone_path:
                 clone_path = Path(repository.clone_path)
@@ -397,7 +580,7 @@ class RepositoryService:
         except Exception:
             pass
 
-        # Delete repository record
+        # Delete repository record.
         repository_crud.delete(
             db=db,
             repository=repository,

@@ -163,3 +163,63 @@ def test_embed_rejects_dimension_mismatch(
             provider=provider,
             config=config,
         )
+
+def test_cache_miss_calls_provider_and_stores_embedding(
+    config: EmbeddingConfig,
+    provider: Mock,
+) -> None:
+    cache = EmbeddingCache()
+    service = EmbeddingService(
+        provider=provider,
+        config=config,
+        cache=cache,
+    )
+
+    chunk = make_chunk(
+        0,
+        "authentication service",
+    )
+
+    results = service.embed([chunk])
+
+    assert results[0].cached is False
+    assert provider.embed.call_count == 1
+
+    cached = cache.get(
+        text=chunk.content,
+        model=provider.model,
+    )
+
+    assert cached is not None
+    assert list(cached) == [1.0, 1.0, 1.0]
+
+
+def test_cache_hit_does_not_call_provider_again(
+    config: EmbeddingConfig,
+    provider: Mock,
+) -> None:
+    cache = EmbeddingCache()
+    service = EmbeddingService(
+        provider=provider,
+        config=config,
+        cache=cache,
+    )
+
+    chunk = make_chunk(
+        0,
+        "authentication service",
+    )
+
+    first = service.embed([chunk])
+
+    assert first[0].cached is False
+    assert provider.embed.call_count == 1
+
+    second = service.embed([chunk])
+
+    assert second[0].cached is True
+
+    # Explicitly prove the provider was NOT called again.
+    provider.embed.assert_called_once()
+
+    assert second[0].vector == first[0].vector

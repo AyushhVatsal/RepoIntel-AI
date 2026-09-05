@@ -11,7 +11,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
 
@@ -109,4 +109,10 @@ class Chunk(Base):
             "chunk_index",
             name="uq_file_chunk_index",
         ),
+    )
+
+    embeddings = relationship(
+        "Embedding",
+        back_populates="chunk",
+        cascade="all, delete-orphan",
     )
