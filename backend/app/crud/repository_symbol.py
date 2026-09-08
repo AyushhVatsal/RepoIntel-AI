@@ -11,20 +11,31 @@ class RepositorySymbolCRUD:
 
     def create_many(
         self,
-        db: Session,
-        symbols: list[RepositorySymbolCreate],
-    ) -> list[RepositorySymbol]:
-        """Bulk insert symbols for a file."""
+        db,
+        symbols,
+    ):
+        unique_symbols = {}
+
+        for symbol in symbols:
+            key = (
+                symbol.file_id,
+                symbol.symbol_type,
+                symbol.qualified_name,
+            )
+
+            if key not in unique_symbols:
+                unique_symbols[key] = symbol
+
         db_symbols = [
-            RepositorySymbol(**s.model_dump())
-            for s in symbols
+            RepositorySymbol(**symbol.model_dump())
+            for symbol in unique_symbols.values()
         ]
+
         db.add_all(db_symbols)
         db.commit()
-        for symbol in db_symbols:
-            db.refresh(symbol)
-        return db_symbols
 
+        return db_symbols
+    
     def get_by_repository(
         self,
         db: Session,

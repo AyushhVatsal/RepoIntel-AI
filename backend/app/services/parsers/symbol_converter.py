@@ -91,16 +91,27 @@ class SymbolConverter:
 
     @staticmethod
     def convert_all(
-        symbols: list[BaseSymbol],
+        symbols,
         repository_id: int,
         file_id: int,
-    ) -> list[RepositorySymbolCreate]:
-        """Convert all symbols to database schemas."""
-        return [
-            SymbolConverter.to_db_schema(
+    ):
+        unique_symbols = {}
+
+        for symbol in symbols:
+            db_symbol = SymbolConverter.to_db_schema(
                 symbol=symbol,
                 repository_id=repository_id,
                 file_id=file_id,
             )
-            for symbol in symbols
-        ]
+
+            key = (
+                db_symbol.file_id,
+                db_symbol.symbol_type,
+                db_symbol.qualified_name,
+            )
+
+            # Keep only one logical symbol per database identity.
+            if key not in unique_symbols:
+                unique_symbols[key] = db_symbol
+
+        return list(unique_symbols.values())
