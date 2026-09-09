@@ -1,0 +1,79 @@
+[
+  {
+    "id": "semantic_001",
+    "category": "semantic",
+    "query": "How are code chunks converted into embeddings?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend\\app\\services\\embedding\\service.py"
+    ]
+  },
+  {
+    "id": "config_001",
+    "category": "configuration",
+    "query": "What embedding model does RepoIntel use?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend\\app\\services\\embedding\\models\\embedding_config.py"
+    ]
+  },
+  {
+    "id": "config_002",
+    "category": "configuration",
+    "query": "What is the embedding batch size?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend\\app\\services\\embedding\\models\\embedding_config.py"
+    ]
+  },
+  {
+    "id": "semantic_002",
+    "category": "semantic",
+    "query": "How are embeddings stored in the database?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend\\app\\models\\embedding.py",
+      "backend\\app\\crud\\embedding.py"
+    ]
+  },
+  {
+    "id": "semantic_003",
+    "category": "semantic",
+    "query": "How does the embedding service batch code chunks?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend\\app\\services\\embedding\\service.py"
+    ]
+  },
+  {
+    "id": "semantic_004",
+    "category": "semantic",
+    "query": "How does RepoIntel reuse previously generated embeddings?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend\\app\\services\\embedding\\service.py"
+    ]
+  },
+  {
+    "id": "config_003",
+    "category": "configuration",
+    "query": "How many dimensions does the embedding vector have?",
+    "repository_id": 49,
+    "expected_file_paths": [
+        "backend\\app\\services\\embedding\\models\\embedding_config.py",
+        "backend\\app\\models\\embedding.py",
+        "backend\\app\\services\\embedding\\providers\\base.py"
+    ]  
+  },
+  {
+    "id": "config_004",
+    "category": "configuration",
+    "query": "Which embedding provider does RepoIntel use?",
+    "repository_id": 49,
+    "expected_file_paths": [
+        "backend\\app\\services\\embedding\\models\\embedding_config.py",
+        "backend\\app\\services\\embedding\\providers\\local.py",
+        "backend\\app\\services\\embedding\\service.py"    
+    ]
+  }
+]
