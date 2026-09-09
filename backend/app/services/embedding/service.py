@@ -12,7 +12,7 @@ from app.services.embedding.providers.base import EmbeddingProvider
 
 class EmbeddingService:
     """Orchestrates chunk embedding, batching, caching, and validation."""
-    
+
     def __init__(
         self,
         provider: EmbeddingProvider,
@@ -29,6 +29,38 @@ class EmbeddingService:
                 "Embedding provider dimensions do not match "
                 "the configured dimensions."
             )
+
+    @property
+    def model_name(self) -> str:
+        """Return the embedding model used by this service."""
+        return self._provider.model
+
+    def embed_query(
+        self,
+        query: str,
+    ) -> list[float]:
+        """Generate an embedding for a retrieval query."""
+
+        if not query.strip():
+            raise ValueError("Query cannot be empty.")
+
+        embeddings = self._provider.embed([query])
+
+        if len(embeddings) != 1:
+            raise ValueError(
+                "Embedding provider returned an unexpected "
+                "number of query embeddings."
+            )
+
+        embedding = embeddings[0]
+
+        if len(embedding) != self._config.dimensions:
+            raise ValueError(
+                f"Query embedding has {len(embedding)} dimensions; "
+                f"expected {self._config.dimensions}."
+            )
+
+        return list(embedding)
 
     def embed(
         self,
@@ -59,7 +91,7 @@ class EmbeddingService:
                         repository_id=chunk.repository_id,
                         file_id=chunk.file_id,
                         chunk_index=chunk.chunk_index,
-                        vector=list(cached_embedding),
+                        vector=tuple(cached_embedding),
                         model=self._provider.model,
                         dimensions=len(cached_embedding),
                         cached=True,
@@ -103,7 +135,7 @@ class EmbeddingService:
                         repository_id=chunk.repository_id,
                         file_id=chunk.file_id,
                         chunk_index=chunk.chunk_index,
-                        vector=list(embedding),
+                        vector=tuple(embedding),
                         model=self._provider.model,
                         dimensions=len(embedding),
                         cached=False,
