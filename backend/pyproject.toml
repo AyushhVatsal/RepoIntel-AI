@@ -1,7 +1,7 @@
 [project]
 name = "repointel-ai-backend"
 version = "0.1.0"
-description = "Add your description here"
+description = "description = "Codebase intelligence platform for repository parsing, code-aware chunking, semantic retrieval, and repository-scoped search""
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
