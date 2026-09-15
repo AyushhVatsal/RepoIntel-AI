@@ -34,34 +34,23 @@ The current version focuses on building a reliable **repository-scoped retrieval
 
 ## Architecture
 
-```text
-Repository
-     │
-     ▼
-Repository Ingestion
-     │
-     ▼
-Tree-sitter Parsing
-     │
-     ▼
-Symbol Extraction
-     │
-     ▼
-Code-aware Chunking
-     │
-     ▼
-Embedding Service
-     │
-     ▼
-PostgreSQL + pgvector
-     │
-     ▼
-HNSW Vector Search
-     │
-     ▼
-Repository-scoped Retrieval
-```
+```mermaid
+graph TD
+    Repo([Git Repository]) --> Scanner[Repository Scanner]
+    Scanner --> Parser[Tree-sitter Parser]
 
+    Parser --> Chunker[Code-aware Chunker]
+    Chunker --> Chunks[(Code Chunks)]
+
+    Chunks --> Embedder[Embedding Service]
+    Embedder --> VectorDB[(PostgreSQL + pgvector)]
+
+    User([Developer Query]) --> QueryEmbed[Query Embedding]
+    QueryEmbed --> Retrieval[Vector Retrieval]
+    VectorDB --> Retrieval
+
+    Retrieval --> Results[Top-K Relevant Chunks]
+```
 ---
 
 ## Key Components
