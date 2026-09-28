@@ -1,5 +1,7 @@
 from pydantic import BaseModel, Field
 
+from app.services.retrieval.filters import RetrievalFilters
+
 
 class RetrievalRequest(BaseModel):
     """Request for retrieving relevant repository chunks."""
@@ -21,6 +23,11 @@ class RetrievalRequest(BaseModel):
         description="Maximum number of relevant chunks to retrieve.",
         ge=1,
         le=20,
+    )
+
+    filters: RetrievalFilters | None = Field(
+        default=None,
+        description="Optional metadata filters for retrieval.",
     )
 
 

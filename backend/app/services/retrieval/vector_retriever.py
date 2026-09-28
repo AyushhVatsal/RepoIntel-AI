@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 
 from app.crud.repository_file import repository_file_crud
 from app.schemas.retrieval import RetrievedChunk
+from app.services.retrieval.filters import RetrievalFilters
 from app.services.vector_store.service import VectorStoreService
 
 
@@ -19,6 +20,7 @@ class VectorRetriever:
         repository_id: int,
         model: str,
         top_k: int,
+        filters: RetrievalFilters | None = None,
     ) -> list[RetrievedChunk]:
         """Perform repository-scoped vector similarity search."""
 
@@ -27,6 +29,7 @@ class VectorRetriever:
             repository_id=repository_id,
             model=model,
             top_k=top_k,
+            filters=filters,
         )
 
         retrieved_chunks = []

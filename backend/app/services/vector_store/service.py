@@ -1,8 +1,9 @@
 from sqlalchemy.orm import Session
 
 from app.crud.embedding import upsert
-from app.services.vector_store.repository import VectorStoreRepository
+from app.services.retrieval.filters import RetrievalFilters
 from app.services.vector_store.models import VectorSearchResult
+from app.services.vector_store.repository import VectorStoreRepository
 
 
 class VectorStoreService:
@@ -23,12 +24,15 @@ class VectorStoreService:
             raise ValueError("model must not be empty")
 
         if dimensions <= 0:
-            raise ValueError("dimensions must be greater than 0")
+            raise ValueError(
+                "dimensions must be greater than 0"
+            )
 
         if len(embedding) != dimensions:
             raise ValueError(
                 f"embedding dimension mismatch: "
-                f"expected {dimensions}, got {len(embedding)}"
+                f"expected {dimensions}, "
+                f"got {len(embedding)}"
             )
 
         return upsert(
@@ -46,21 +50,35 @@ class VectorStoreService:
         model: str,
         top_k: int = 10,
         score_threshold: float | None = None,
+        filters: RetrievalFilters | None = None,
     ) -> list[VectorSearchResult]:
         if repository_id <= 0:
-            raise ValueError("repository_id must be greater than 0")
+            raise ValueError(
+                "repository_id must be greater than 0"
+            )
 
         if not model.strip():
-            raise ValueError("model must not be empty")
+            raise ValueError(
+                "model must not be empty"
+            )
 
         if not query_vector:
-            raise ValueError("query_vector must not be empty")
+            raise ValueError(
+                "query_vector must not be empty"
+            )
 
         if top_k <= 0:
-            raise ValueError("top_k must be greater than 0")
+            raise ValueError(
+                "top_k must be greater than 0"
+            )
 
-        if score_threshold is not None and not 0 <= score_threshold <= 1:
-            raise ValueError("score_threshold must be between 0 and 1")
+        if (
+            score_threshold is not None
+            and not 0 <= score_threshold <= 1
+        ):
+            raise ValueError(
+                "score_threshold must be between 0 and 1"
+            )
 
         return self.repository.similarity_search(
             query_vector=query_vector,
@@ -68,4 +86,5 @@ class VectorStoreService:
             model=model,
             top_k=top_k,
             score_threshold=score_threshold,
+            filters=filters,
         )

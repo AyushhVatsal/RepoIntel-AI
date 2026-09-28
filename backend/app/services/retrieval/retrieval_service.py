@@ -42,6 +42,7 @@ class RetrievalService:
             repository_id=request.repository_id,
             model=self._embedding_service.model_name,
             top_k=request.top_k,
+            filters=request.filters,
         )
 
         return RetrievalResponse(
