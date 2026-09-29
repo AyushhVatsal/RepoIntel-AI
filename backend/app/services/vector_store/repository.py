@@ -73,6 +73,16 @@ class VectorStoreRepository:
                     == filters.symbol_name
                 )
 
+            if filters.role is not None:
+                stmt = stmt.where(
+                    RepositoryFile.role == filters.role
+                )
+
+            if filters.exclude_roles:
+                stmt = stmt.where(
+                    ~RepositoryFile.role.in_(filters.exclude_roles)
+                )
+
         stmt = (
             stmt
             .order_by(distance)

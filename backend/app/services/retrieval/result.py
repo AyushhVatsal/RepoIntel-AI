@@ -7,3 +7,5 @@ class RetrievalResult:
 
     chunk_id: int
     score: float
+    dense_score: float | None = None
+    retrieval_score: float | None = None

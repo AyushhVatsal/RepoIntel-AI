@@ -11,6 +11,6 @@ def test_load_retrieval_eval_cases() -> None:
 
     cases = load_retrieval_eval_cases(file_path)
 
-    assert len(cases) == 4
+    assert len(cases) == 8
     assert cases[0].id == "semantic_001"
     assert cases[0].repository_id == 49

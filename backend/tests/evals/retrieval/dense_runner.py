@@ -1,8 +1,14 @@
 from sqlalchemy.orm import Session
 
+from app.models.repository_file import FileRole
 from app.schemas.retrieval import RetrievalRequest
-from app.services.retrieval.retrieval_service import RetrievalService
+from app.services.embedding.models.embedding_config import EmbeddingConfig
+from app.services.embedding.providers.local import LocalEmbeddingProvider
+from app.services.embedding.service import EmbeddingService
 from app.services.retrieval.filters import RetrievalFilters
+from app.services.retrieval.hydrator import RetrievalResultHydrator
+from app.services.retrieval.result import RetrievalResult
+from app.services.retrieval.vector_retriever import VectorRetriever
 
 from tests.evals.retrieval.models import (
     RetrievalEvalCase,
@@ -10,13 +16,19 @@ from tests.evals.retrieval.models import (
 )
 
 
-class RetrievalEvalRunner:
-    """Run retrieval evaluation cases against the current retrieval pipeline."""
-    def __init__(
-        self,
-        db: Session,
-    ) -> None:
-        self._retrieval_service = RetrievalService(db)
+class DenseEvalRunner:
+    """Run retrieval evaluation against Dense retrieval only."""
+
+    def __init__(self, db: Session) -> None:
+        config = EmbeddingConfig()
+        provider = LocalEmbeddingProvider(config.model)
+
+        self._embedding_service = EmbeddingService(
+            provider=provider,
+            config=config,
+        )
+        self._vector_retriever = VectorRetriever(db)
+        self._hydrator = RetrievalResultHydrator(db)
 
     def run_case(
         self,
@@ -24,22 +36,34 @@ class RetrievalEvalRunner:
         k: int = 5,
         filters: RetrievalFilters | None = None,
     ) -> RetrievalEvalResult:
-        """Run a single retrieval evaluation case."""
+        query_vector = self._embedding_service.embed_query(
+            case.query,
+        )
 
-        request = RetrievalRequest(
+        dense_chunks = self._vector_retriever.search(
+            query_vector=query_vector,
             repository_id=case.repository_id,
-            query=case.query,
+            model=self._embedding_service.model_name,
             top_k=k,
             filters=filters,
         )
 
-        response = self._retrieval_service.retrieve(
-            request,
+        retrieval_results = [
+            RetrievalResult(
+                chunk_id=chunk.chunk_id,
+                score=chunk.similarity_score,
+                dense_score=chunk.similarity_score,
+            )
+            for chunk in dense_chunks
+        ]
+
+        results = self._hydrator.hydrate(
+            retrieval_results,
         )
 
         retrieved_file_paths = tuple(
             result.file_path
-            for result in response.results
+            for result in results
         )
 
         expected_file_paths = tuple(
@@ -79,7 +103,6 @@ class RetrievalEvalRunner:
         k: int = 5,
         filters: RetrievalFilters | None = None,
     ) -> list[RetrievalEvalResult]:
-        """Run all retrieval evaluation cases."""
         return [
             self.run_case(
                 case=case,

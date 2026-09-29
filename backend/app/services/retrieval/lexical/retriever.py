@@ -4,18 +4,21 @@ from sqlalchemy.orm import Session
 from app.models.chunk import Chunk
 from app.models.repository_file import RepositoryFile
 from app.services.retrieval.filters import RetrievalFilters
+from app.services.retrieval.lexical.index import LexicalDocument
+from app.services.retrieval.lexical.manager import BM25IndexManager
 from app.services.retrieval.result import RetrievalResult
-from app.services.retrieval.lexical.index import (
-    BM25Index,
-    LexicalDocument,
-)
 
 
 class LexicalRetriever:
     """Repository-scoped BM25 retrieval."""
 
-    def __init__(self, db: Session) -> None:
+    def __init__(
+        self,
+        db: Session,
+        index_manager: BM25IndexManager,
+    ) -> None:
         self.db = db
+        self.index_manager = index_manager
 
     def search(
         self,
@@ -27,9 +30,6 @@ class LexicalRetriever:
     ) -> list[RetrievalResult]:
         """
         Perform BM25 retrieval over chunks belonging to one repository.
-
-        Returns:
-            list of (chunk_id, bm25_score)
         """
 
         if top_k <= 0:
@@ -69,21 +69,53 @@ class LexicalRetriever:
                     Chunk.symbol_name == filters.symbol_name,
                 )
 
-        chunks = self.db.scalars(stmt).all()
+            if filters.role:
+                stmt = stmt.where(
+                    RepositoryFile.role == filters.role,
+                )
 
-        if not chunks:
-            return []
+            if filters.exclude_roles:
+                stmt = stmt.where(
+                    ~RepositoryFile.role.in_(filters.exclude_roles)
+                )
+                
+        if filters:
+            chunks = self.db.scalars(stmt).all()
 
-        documents = [
-            LexicalDocument(
-                chunk_id=chunk.id,
-                content=chunk.content,
-            )
-            for chunk in chunks
-        ]
+            if not chunks:
+                return []
 
-        index = BM25Index()
-        index.build(documents)
+            documents = [
+                LexicalDocument(
+                    chunk_id=chunk.id,
+                    content=chunk.content,
+                )
+                for chunk in chunks
+            ]
+
+            index = self.index_manager.build_temporary(documents)
+
+        else:
+            index = self.index_manager.get(repository_id)
+
+            if index is None:
+                chunks = self.db.scalars(stmt).all()
+
+                if not chunks:
+                    return []
+
+                documents = [
+                    LexicalDocument(
+                        chunk_id=chunk.id,
+                        content=chunk.content,
+                    )
+                    for chunk in chunks
+                ]
+
+                index = self.index_manager.build(
+                    repository_id,
+                    documents,
+                )
 
         return index.search(
             query=query,

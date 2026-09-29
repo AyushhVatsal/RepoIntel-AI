@@ -127,5 +127,21 @@ class ChunkCRUD:
         db.execute(stmt)
         db.commit()
 
+    def get_by_ids(
+        self,
+        db: Session,
+        chunk_ids: list[int],
+    ) -> list[Chunk]:
+        """Get multiple chunks by their IDs."""
+        if not chunk_ids:
+            return []
+
+        stmt = (
+            select(Chunk)
+            .where(Chunk.id.in_(chunk_ids))
+        )
+
+        return list(db.scalars(stmt).all())
+
 
 chunk_crud = ChunkCRUD()

@@ -1,12 +1,13 @@
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
+from regex import F
 
 from app.models.repository_file import (
     FileCategory,
     LanguageSupportTier,
 )
-
+from app.models.repository_file import FileCategory, FileRole
 
 class RepositoryFileBase(BaseModel):
     path: str
@@ -16,6 +17,7 @@ class RepositoryFileBase(BaseModel):
     language: str | None = None
 
     category: FileCategory
+    role: FileRole
     support_tier: LanguageSupportTier
 
     size: int

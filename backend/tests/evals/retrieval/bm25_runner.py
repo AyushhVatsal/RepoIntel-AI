@@ -1,8 +1,10 @@
 from sqlalchemy.orm import Session
 
-from app.schemas.retrieval import RetrievalRequest
-from app.services.retrieval.retrieval_service import RetrievalService
+from app.crud.chunk import chunk_crud
+from app.crud.repository_file import repository_file_crud
 from app.services.retrieval.filters import RetrievalFilters
+from app.services.retrieval.lexical.manager import BM25IndexManager
+from app.services.retrieval.lexical.retriever import LexicalRetriever
 
 from tests.evals.retrieval.models import (
     RetrievalEvalCase,
@@ -10,13 +12,18 @@ from tests.evals.retrieval.models import (
 )
 
 
-class RetrievalEvalRunner:
-    """Run retrieval evaluation cases against the current retrieval pipeline."""
-    def __init__(
-        self,
-        db: Session,
-    ) -> None:
-        self._retrieval_service = RetrievalService(db)
+class BM25EvalRunner:
+    """Run retrieval evaluation against BM25 only."""
+
+    def __init__(self, db: Session) -> None:
+        self._db = db
+
+        index_manager = BM25IndexManager()
+
+        self._retriever = LexicalRetriever(
+            db,
+            index_manager,
+        )
 
     def run_case(
         self,
@@ -24,22 +31,37 @@ class RetrievalEvalRunner:
         k: int = 5,
         filters: RetrievalFilters | None = None,
     ) -> RetrievalEvalResult:
-        """Run a single retrieval evaluation case."""
-
-        request = RetrievalRequest(
+        results = self._retriever.search(
             repository_id=case.repository_id,
             query=case.query,
             top_k=k,
             filters=filters,
         )
 
-        response = self._retrieval_service.retrieve(
-            request,
-        )
+        retrieved_file_paths: list[str] = []
 
-        retrieved_file_paths = tuple(
-            result.file_path
-            for result in response.results
+        for result in results:
+            chunk = chunk_crud.get(
+                self._db,
+                result.chunk_id,
+            )
+
+            if chunk is None:
+                continue
+
+            repository_file = repository_file_crud.get(
+                self._db,
+                chunk.file_id,
+            )
+
+            retrieved_file_paths.append(
+                repository_file.relative_path
+                if repository_file is not None
+                else "unknown"
+            )
+
+        retrieved_file_paths_tuple = tuple(
+            retrieved_file_paths
         )
 
         expected_file_paths = tuple(
@@ -48,14 +70,14 @@ class RetrievalEvalRunner:
 
         relevant_results = sum(
             file_path in expected_file_paths
-            for file_path in retrieved_file_paths
+            for file_path in retrieved_file_paths_tuple
         )
 
         first_relevant_rank = next(
             (
                 rank
                 for rank, file_path in enumerate(
-                    retrieved_file_paths,
+                    retrieved_file_paths_tuple,
                     start=1,
                 )
                 if file_path in expected_file_paths
@@ -68,7 +90,7 @@ class RetrievalEvalRunner:
             category=case.category,
             query=case.query,
             expected_file_paths=expected_file_paths,
-            retrieved_file_paths=retrieved_file_paths,
+            retrieved_file_paths=retrieved_file_paths_tuple,
             first_relevant_rank=first_relevant_rank,
             relevant_results=relevant_results,
         )
@@ -79,7 +101,6 @@ class RetrievalEvalRunner:
         k: int = 5,
         filters: RetrievalFilters | None = None,
     ) -> list[RetrievalEvalResult]:
-        """Run all retrieval evaluation cases."""
         return [
             self.run_case(
                 case=case,

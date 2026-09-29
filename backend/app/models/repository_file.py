@@ -28,6 +28,14 @@ class FileCategory(str, Enum):
     BINARY = "binary"
     IGNORED = "ignored"
 
+class FileRole(str, Enum):
+    SOURCE = "source"
+    TEST = "test"
+    FIXTURE = "fixture"
+    CONFIG = "config"
+    DOCUMENTATION = "documentation"
+    UNKNOWN = "unknown"
+
 
 class LanguageSupportTier(str, Enum):
     TIER_1 = "tier_1"
@@ -72,6 +80,12 @@ class RepositoryFile(Base):
     category: Mapped[FileCategory] = mapped_column(
         SqlEnum(FileCategory),
         nullable=False,
+    )
+
+    role: Mapped[FileRole] = mapped_column(
+        SqlEnum(FileRole),
+        nullable=False,
+        default=FileRole.UNKNOWN,
     )
 
     support_tier: Mapped[LanguageSupportTier] = mapped_column(

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from app.models.repository_file import (
     FileCategory,
+    FileRole,
     LanguageSupportTier,
 )
 
@@ -21,6 +22,10 @@ from app.services.repository.constants import (
     SPECIAL_TEXT_FILENAMES
 )
 
+from app.services.repository.file_role_classifier import (
+    FileRoleClassifier,
+)
+
 from app.schemas.repository_file import RepositoryFileCreate
 from app.exceptions.repository import (
     RepositoryScanError,
@@ -29,6 +34,8 @@ from app.exceptions.repository import (
 
 
 class ScannerService:
+    def __init__(self) -> None:
+        self._role_classifier = FileRoleClassifier()
     """
     Scans a repository and discovers all files that should be processed.
 
@@ -185,7 +192,16 @@ class ScannerService:
 
         category = self._get_category(file_path)
 
+        relative_path = file_path.relative_to(repository_root)
+
+        role = self._role_classifier.classify(
+            relative_path=str(relative_path),
+            filename=file_path.name,
+            category=category,
+        )
+
         language = self._get_language(file_path)
+
         support_tier = self._get_support_tier(file_path)
         size = self._get_file_size(file_path)
         last_modified = self._get_last_modified(file_path)
@@ -194,11 +210,12 @@ class ScannerService:
         return RepositoryFileCreate(
             repository_id=repository_id,
             path=str(file_path.resolve()),
-            relative_path=str(file_path.relative_to(repository_root)),
+            relative_path=str(relative_path),
             filename=file_path.name,
             extension=file_path.suffix.lower() or None,
             language=language,
             category=category,
+            role=role,
             support_tier=support_tier,
             size=size,
             sha256_hash=sha256_hash,

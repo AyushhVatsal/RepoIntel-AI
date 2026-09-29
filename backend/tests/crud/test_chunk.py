@@ -99,6 +99,32 @@ def test_get():
     assert result is expected
     db.get.assert_called_once_with(Chunk, 123)
 
+def test_get_by_ids():
+    db = MagicMock()
+    crud = ChunkCRUD()
+
+    chunks = [
+        MagicMock(spec=Chunk),
+        MagicMock(spec=Chunk),
+    ]
+
+    db.scalars.return_value.all.return_value = chunks
+
+    result = crud.get_by_ids(db, [10, 20])
+
+    assert result == chunks
+
+    db.scalars.assert_called_once()
+
+def test_get_by_ids_empty():
+    db = MagicMock()
+    crud = ChunkCRUD()
+
+    result = crud.get_by_ids(db, [])
+
+    assert result == []
+
+    db.scalars.assert_not_called()
 
 def test_get_by_repository():
     db = MagicMock()

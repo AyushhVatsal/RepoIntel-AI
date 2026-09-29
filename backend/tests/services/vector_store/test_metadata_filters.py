@@ -2,7 +2,6 @@ import uuid
 
 import pytest
 
-from app.db.database import SessionLocal
 from app.models.chunk import Chunk, ChunkType
 from app.models.embedding import Embedding
 from app.models.repository import Repository, RepositoryStatus
@@ -10,21 +9,12 @@ from app.models.repository_file import (
     FileCategory,
     LanguageSupportTier,
     RepositoryFile,
+    FileRole
 )
 from app.models.user import User
 from app.services.retrieval.filters import RetrievalFilters
 from app.services.vector_store.repository import VectorStoreRepository
-
-
-@pytest.fixture
-def db():
-    session = SessionLocal()
-
-    try:
-        yield session
-    finally:
-        session.rollback()
-        session.close()
+from app.services.vector_store.service import VectorStoreService
 
 
 def test_no_filters_preserves_v1_behavior(db, retrieval_dataset):
@@ -184,3 +174,30 @@ def test_repository_isolation_is_always_enforced(
         == retrieval_dataset["repository_id"]
         for result in results
     )
+
+def test_role_filter(db, retrieval_dataset):
+    service = VectorStoreService(db)
+
+    results = service.similarity_search(
+        query_vector=retrieval_dataset["query_vector"],
+        repository_id=retrieval_dataset["repository_id"],
+        model="filter-test-model",
+        top_k=10,
+        filters=RetrievalFilters(
+            role=FileRole.SOURCE,
+        ),
+    )
+
+    assert len(results) == 3
+
+    result_chunk_ids = {
+        result.chunk.id
+        for result in results
+    }
+
+    expected_chunk_ids = {
+        chunk.id
+        for chunk in retrieval_dataset["chunks"]
+    }
+
+    assert result_chunk_ids == expected_chunk_ids

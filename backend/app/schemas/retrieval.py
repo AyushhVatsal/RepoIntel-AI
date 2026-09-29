@@ -32,7 +32,7 @@ class RetrievalRequest(BaseModel):
 
 
 class RetrievedChunk(BaseModel):
-    """A chunk returned by vector retrieval."""
+    """A chunk returned by retrieval."""
 
     chunk_id: int
 
@@ -40,8 +40,9 @@ class RetrievedChunk(BaseModel):
 
     file_path: str
 
-    similarity_score: float
+    similarity_score: float | None = None
 
+    retrieval_score: float | None = None
 
 class RetrievalResponse(BaseModel):
     """Response returned by the retrieval module."""

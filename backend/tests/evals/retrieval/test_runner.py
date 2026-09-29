@@ -10,7 +10,8 @@ from tests.evals.retrieval.runner import (
 )
 
 from .aggregator import aggregate_results
-
+from app.models.repository_file import FileRole
+from app.services.retrieval.filters import RetrievalFilters
 
 def test_run_retrieval_evaluation() -> None:
     file_path = (
@@ -34,6 +35,12 @@ def test_run_retrieval_evaluation() -> None:
         results = runner.run(
             cases=cases,
             k=k,
+            filters=RetrievalFilters(
+                exclude_roles=[
+                    FileRole.TEST,
+                    FileRole.FIXTURE,
+                ],
+            ),
         )
 
         summary = aggregate_results(results)
