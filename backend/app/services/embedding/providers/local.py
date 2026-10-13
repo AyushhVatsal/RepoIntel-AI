@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from functools import lru_cache
 
 from sentence_transformers import SentenceTransformer
-
-from .base import EmbeddingProvider
 
 
 class LocalEmbeddingProvider:
@@ -38,3 +37,8 @@ class LocalEmbeddingProvider:
         )
 
         return embeddings.tolist()
+
+@lru_cache(maxsize=4)
+def get_local_embedding_provider(model_name: str) -> LocalEmbeddingProvider:
+    """Reuse a loaded embedding provider across requests."""
+    return LocalEmbeddingProvider(model_name)

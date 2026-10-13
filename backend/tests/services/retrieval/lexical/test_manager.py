@@ -1,5 +1,6 @@
 from app.services.retrieval.lexical.index import LexicalDocument
-from app.services.retrieval.lexical.manager import BM25IndexManager
+from app.services.retrieval.lexical.manager import BM25IndexManager, get_bm25_index_manager
+
 
 def test_get_returns_none_for_uncached_repository():
     manager = BM25IndexManager()
@@ -87,3 +88,13 @@ def test_clear_removes_all_indexes():
 
     assert manager.get(1) is None
     assert manager.get(2) is None
+
+def test_get_bm25_index_manager_returns_shared_instance():
+    get_bm25_index_manager.cache_clear()
+
+    first = get_bm25_index_manager()
+    second = get_bm25_index_manager()
+
+    assert first is second
+
+    get_bm25_index_manager.cache_clear()

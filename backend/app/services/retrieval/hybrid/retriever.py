@@ -31,14 +31,26 @@ class HybridRetriever:
         query: str,
         top_k: int,
         filters: RetrievalFilters | None = None,
+        candidate_k: int | None = None,
     ) -> list[RetrievalResult]:
         """Run dense and lexical retrieval, filter candidates, then fuse."""
 
         if top_k <= 0:
             return []
 
-        dense_candidate_k = max(top_k * 4, 20)
+        retrieval_k = (
+            max(candidate_k, top_k)
+            if candidate_k is not None
+            else top_k
+        )
 
+        dense_candidate_k = (
+            max(retrieval_k, 20)
+            if candidate_k is not None
+            else top_k
+        )
+
+        # 1. Dense vector retrieval.
         dense_chunks = self.vector_retriever.search(
             query_vector=query_vector,
             repository_id=repository_id,
@@ -56,6 +68,7 @@ class HybridRetriever:
             for chunk in dense_chunks
         ]
 
+        # 2. Exclude test and fixture files from dense candidates.
         dense_results = self.candidate_filter.exclude_roles(
             dense_results,
             roles=[
@@ -63,30 +76,30 @@ class HybridRetriever:
                 FileRole.FIXTURE,
             ],
         )
+        dense_results = dense_results[:dense_candidate_k]
 
-        dense_results = dense_results[:top_k]
-
+        # 3. Apply default role exclusions to lexical retrieval.
         lexical_filters = filters or RetrievalFilters()
+        excluded_roles = list(lexical_filters.exclude_roles or [])
 
-        if FileRole.TEST not in (lexical_filters.exclude_roles or []):
-            lexical_filters = lexical_filters.model_copy(
-                update={
-                    "exclude_roles": [
-                        *(lexical_filters.exclude_roles or []),
-                        FileRole.TEST,
-                        FileRole.FIXTURE,
-                    ]
-                }
-            )
+        for role in (FileRole.TEST, FileRole.FIXTURE):
+            if role not in excluded_roles:
+                excluded_roles.append(role)
 
+        lexical_filters = lexical_filters.model_copy(
+            update={"exclude_roles": excluded_roles}
+        )
+
+        # 4. BM25 lexical retrieval.
         lexical_results = self.lexical_retriever.search(
             repository_id=repository_id,
             query=query,
-            top_k=top_k,
+            top_k=dense_candidate_k,
             filters=lexical_filters,
         )
 
+        # 5. Fuse dense and lexical results using RRF.
         return self.fusion.fuse(
             [dense_results, lexical_results],
-            top_k=top_k,
+            top_k=dense_candidate_k,
         )

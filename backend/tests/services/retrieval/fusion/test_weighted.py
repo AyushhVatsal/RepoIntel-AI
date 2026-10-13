@@ -176,3 +176,26 @@ def test_weighted_fusion_equal_scores_are_safe() -> None:
         result.score == 1.0
         for result in results
     )
+
+def test_weighted_fusion_preserves_rrf_order_for_tied_scores() -> None:
+    fusion = WeightedFusion()
+
+    rrf_results = [
+        RetrievalResult(chunk_id=3, score=5.0),
+        RetrievalResult(chunk_id=1, score=5.0),
+        RetrievalResult(chunk_id=2, score=5.0),
+    ]
+
+    cross_encoder_results = [
+        RetrievalResult(chunk_id=3, score=2.0),
+        RetrievalResult(chunk_id=1, score=2.0),
+        RetrievalResult(chunk_id=2, score=2.0),
+    ]
+
+    results = fusion.fuse(
+        rrf_results=rrf_results,
+        cross_encoder_results=cross_encoder_results,
+        top_k=3,
+    )
+
+    assert [result.chunk_id for result in results] == [3, 1, 2]

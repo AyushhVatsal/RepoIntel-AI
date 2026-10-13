@@ -62,10 +62,18 @@ class V22FusionRetrievalEvalRunner:
         k: int = 5,
         rrf_weight: float = 0.90,
         filters: RetrievalFilters | None = None,
+        conditional_threshold: float | None = None,
+        candidate_pool_k: int | None = None,
     ) -> RetrievalEvalResult:
         query_vector = self._embedding_service.embed_query(
             case.query,
         )
+        pool_k = k if candidate_pool_k is None else candidate_pool_k
+
+        if pool_k < k:
+            raise ValueError(
+                "candidate_pool_k must be greater than or equal to k"
+            )
 
         # Keep the candidate pool at 5 for this controlled experiment.
         rrf_results = self._hybrid_retriever.search(
@@ -73,7 +81,7 @@ class V22FusionRetrievalEvalRunner:
             repository_id=case.repository_id,
             model=self._embedding_service.model_name,
             query=case.query,
-            top_k=k,
+            top_k=pool_k,
             filters=filters,
         )
 
@@ -86,23 +94,39 @@ class V22FusionRetrievalEvalRunner:
             for result in hydrated
         }
 
-        ce_results = self._reranker.rerank(
-            query=case.query,
-            results=rrf_results,
-            documents=documents,
-            top_k=k,
+
+        should_skip_reranking = (
+            conditional_threshold is not None
+            and (
+                len(rrf_results) < 2
+                or (
+                    rrf_results[0].score
+                    - rrf_results[1].score
+                ) >= conditional_threshold
+            )
         )
 
-        weighted_fusion = WeightedFusion(
-            rrf_weight=rrf_weight,
-            cross_encoder_weight=1.0 - rrf_weight,
-        )
+        if should_skip_reranking:
+            # Preserve the original RRF ranking.
+            fused_results = rrf_results[:k]
+        else:
+            ce_results = self._reranker.rerank(
+                query=case.query,
+                results=rrf_results,
+                documents=documents,
+                top_k=pool_k,
+            )
 
-        fused_results = weighted_fusion.fuse(
-            rrf_results=rrf_results,
-            cross_encoder_results=ce_results,
-            top_k=k,
-        )
+            weighted_fusion = WeightedFusion(
+                rrf_weight=rrf_weight,
+                cross_encoder_weight=1.0 - rrf_weight,
+            )
+
+            fused_results = weighted_fusion.fuse(
+                rrf_results=rrf_results,
+                cross_encoder_results=ce_results,
+                top_k=k,
+            )
 
         final_chunks = self._hydrator.hydrate(
             fused_results,
@@ -151,6 +175,8 @@ class V22FusionRetrievalEvalRunner:
         k: int = 5,
         rrf_weight: float = 0.90,
         filters: RetrievalFilters | None = None,
+        conditional_threshold: float | None = None,
+        candidate_pool_k: int | None = None,
     ) -> list[RetrievalEvalResult]:
         return [
             self.run_case(
@@ -158,6 +184,8 @@ class V22FusionRetrievalEvalRunner:
                 k=k,
                 rrf_weight=rrf_weight,
                 filters=filters,
+                conditional_threshold=conditional_threshold,
+                candidate_pool_k=candidate_pool_k,
             )
             for case in cases
         ]

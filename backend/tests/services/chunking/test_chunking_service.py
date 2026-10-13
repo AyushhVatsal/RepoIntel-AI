@@ -6,6 +6,7 @@ from app.services.chunking.service import ChunkingService
 from app.services.parsers.models.enums import SymbolType
 from app.services.parsers.models.parsed_document import ParsedDocument
 from app.services.parsers.models.symbols import BaseSymbol, SourceLocation
+from app.models.repository_file import FileRole
 
 
 def test_tier_1_creates_symbol_chunks_from_parsed_document():
@@ -28,6 +29,7 @@ class UserService:
         language="python",
         category=FileCategory.SOURCE,
         support_tier=LanguageSupportTier.TIER_1,
+        role=FileRole.SOURCE,
         size=len(source_code),
         sha256_hash=None,
         is_binary=False,
@@ -92,6 +94,7 @@ some content that should not be chunked
         language=None,
         category=FileCategory.DOCUMENTATION,
         support_tier=LanguageSupportTier.NONE,
+        role=FileRole.DOCUMENTATION,
         size=len(source_code),
         sha256_hash=None,
         is_binary=False,
@@ -132,6 +135,7 @@ configuration:
         language="yaml",
         category=FileCategory.CONFIGURATION,
         support_tier=LanguageSupportTier.TIER_0,
+        role=FileRole.CONFIG,
         size=len(source_code),
         sha256_hash=None,
         is_binary=False,

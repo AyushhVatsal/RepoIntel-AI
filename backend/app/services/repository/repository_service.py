@@ -30,6 +30,7 @@ from app.services.repository.framework_detector import (
 from app.services.repository.metadata_service import metadata_service
 from app.services.repository.scanner_service import scanner_service
 from app.services.vector_store.service import VectorStoreService
+from app.services.retrieval.lexical.manager import get_bm25_index_manager
 
 
 class RepositoryService:
@@ -417,6 +418,8 @@ class RepositoryService:
                 **metadata,
             )
 
+            get_bm25_index_manager().invalidate(repository.id)
+
             return repository
 
         except Exception as e:
@@ -489,6 +492,9 @@ class RepositoryService:
             owner_id=owner_id,
         )
 
+        get_bm25_index_manager().invalidate(repository.id)
+
+
         # Delete indexed files.
         #
         # The database FK cascade handles:
@@ -552,6 +558,7 @@ class RepositoryService:
         """
         Clean up all resources created during a failed indexing operation.
         """
+        get_bm25_index_manager().invalidate(repository.id)
 
         # Delete symbols.
         repository_symbol_crud.delete_by_repository(

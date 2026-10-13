@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from app.services.retrieval.lexical.index import BM25Index, LexicalDocument
 
 
@@ -41,3 +43,8 @@ class BM25IndexManager:
     def clear(self) -> None:
         """Remove all cached repository indexes."""
         self._indexes.clear()
+
+@lru_cache(maxsize=1)
+def get_bm25_index_manager() -> BM25IndexManager:
+    """Return the shared BM25 index manager for this process."""
+    return BM25IndexManager()

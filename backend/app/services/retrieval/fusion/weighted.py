@@ -82,7 +82,7 @@ class WeightedFusion:
             cross_encoder_scores
         )
 
-        chunk_ids = set(rrf_scores)
+        chunk_ids = list(rrf_scores)
 
         fused: list[RetrievalResult] = []
 

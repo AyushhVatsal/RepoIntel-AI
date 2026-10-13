@@ -28,7 +28,7 @@ def test_no_filters_preserves_v1_behavior(db, retrieval_dataset):
         filters=None,
     )
 
-    assert len(results) == 3
+    assert len(results) == 5
 
     result_chunk_ids = {result.chunk.id for result in results}
 
@@ -51,7 +51,7 @@ def test_language_filter(db, retrieval_dataset):
         filters=RetrievalFilters(language="python"),
     )
 
-    assert len(results) == 2
+    assert len(results) == 4
 
     assert {
         result.chunk.id
@@ -59,6 +59,8 @@ def test_language_filter(db, retrieval_dataset):
     } == {
         retrieval_dataset["chunks"][0].id,
         retrieval_dataset["chunks"][1].id,
+        retrieval_dataset["chunks"][3].id,
+        retrieval_dataset["chunks"][4].id,
     }
 
 
@@ -94,7 +96,7 @@ def test_chunk_type_filter(db, retrieval_dataset):
         ),
     )
 
-    assert len(results) == 2
+    assert len(results) == 4
 
     assert all(
         result.chunk.chunk_type == ChunkType.FUNCTION
@@ -136,7 +138,7 @@ def test_multiple_filters_use_and_logic(db, retrieval_dataset):
         ),
     )
 
-    assert len(results) == 1
+    assert len(results) == 3
 
     result = results[0]
 
@@ -197,7 +199,7 @@ def test_role_filter(db, retrieval_dataset):
 
     expected_chunk_ids = {
         chunk.id
-        for chunk in retrieval_dataset["chunks"]
+        for chunk in retrieval_dataset["chunks"][:3]
     }
 
     assert result_chunk_ids == expected_chunk_ids
