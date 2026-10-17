@@ -6,6 +6,8 @@ from app.models.conversation import Conversation
 from app.models.message import Message
 from app.models.chunk import Chunk
 from app.models.embedding import Embedding
+from app.models.graph_node import GraphNode, GraphNodeType
+from app.models.graph_edge import GraphEdge, GraphEdgeType
 
 __all__ = [
     "User",
@@ -15,5 +17,9 @@ __all__ = [
     "Conversation",
     "Message",
     "Chunk",
-    "Embedding"
+    "Embedding",
+    "GraphNode",
+    "GraphNodeType",
+    "GraphEdge",
+    "GraphEdgeType",
 ]

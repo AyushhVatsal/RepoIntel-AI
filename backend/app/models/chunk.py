@@ -1,6 +1,7 @@
 from datetime import datetime
 from enum import Enum
 
+
 from sqlalchemy import (
     DateTime,
     ForeignKey,
@@ -104,6 +105,12 @@ class Chunk(Base):
     )
 
     __table_args__ = (
+        UniqueConstraint(
+            "repository_id",
+            "file_id",
+            "id",
+            name="uq_chunks_repository_file_id_id",
+        ),
         UniqueConstraint(
             "file_id",
             "chunk_index",

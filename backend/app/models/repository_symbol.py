@@ -41,6 +41,12 @@ class RepositorySymbol(Base):
 
     __table_args__ = (
         UniqueConstraint(
+            "repository_id",
+            "file_id",
+            "id",
+            name="uq_repository_symbols_repository_file_id_id",
+        ),
+        UniqueConstraint(
             "file_id",
             "symbol_type",
             "qualified_name",

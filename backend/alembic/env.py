@@ -15,6 +15,8 @@ from app.models import (
     RepositoryFile,
     Conversation,
     Message,
+    GraphNode,
+    GraphEdge,
 )
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

@@ -11,6 +11,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -125,6 +126,11 @@ class RepositoryFile(Base):
     )
 
     __table_args__ = (
+        UniqueConstraint(
+            "repository_id",
+            "id",
+            name="uq_repository_files_repository_id_id",
+        ),
         Index(
             "ix_repository_files_repository_relative_path",
             "repository_id",
