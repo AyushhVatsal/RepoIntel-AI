@@ -37,4 +37,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
+markers = [
+    "integration: tests requiring an explicitly enabled integration environment",
+]
 pythonpath = ["."]
