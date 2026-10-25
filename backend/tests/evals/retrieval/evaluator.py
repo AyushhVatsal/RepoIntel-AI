@@ -1,3 +1,4 @@
+from .paths import normalize_path
 from app.schemas.retrieval import RetrievalRequest
 from app.services.retrieval.retrieval_service import RetrievalService
 
@@ -31,15 +32,13 @@ class RetrievalEvaluator:
 
         response = self._retrieval_service.retrieve(request)
 
-        retrieved_file_paths = self._deduplicate_paths(
-            tuple(
-                self._normalize_path(result.file_path)
-                for result in response.results
-            )
+        retrieved_file_paths = tuple(
+            normalize_path(result.file_path)
+            for result in response.results
         )
 
         expected_file_paths = tuple(
-            self._normalize_path(path)
+            normalize_path(path)
             for path in case.expected_file_paths
         )
 

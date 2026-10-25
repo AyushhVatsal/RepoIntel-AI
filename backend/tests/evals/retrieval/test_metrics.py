@@ -169,3 +169,38 @@ def test_ndcg_at_k() -> None:
     )
 
     assert 0.0 <= value <= 1.0
+
+def test_duplicate_chunks_do_not_inflate_file_level_metrics() -> None:
+    result = make_result(
+        expected=("A.py", "B.py"),
+        retrieved=("A.py", "A.py", "C.py", "A.py", "B.py"),
+        first_relevant_rank=1,
+    )
+
+    assert hit_rate_at_k([result], 5) == pytest.approx(1.0)
+    assert recall_at_k([result], 5) == pytest.approx(1.0)
+    assert precision_at_k([result], 5) == pytest.approx(0.4)
+    assert mrr_at_k([result], 5) == pytest.approx(1.0)
+    assert ndcg_at_k([result], 5) == pytest.approx(0.8503, abs=0.0001)
+
+
+def test_duplicate_chunks_preserve_original_rank_for_mrr() -> None:
+    result = make_result(
+        expected=("A.py",),
+        retrieved=("C.py", "C.py", "A.py"),
+        first_relevant_rank=3,
+    )
+
+    assert mrr_at_k([result], 3) == pytest.approx(1 / 3)
+
+
+def test_metrics_match_windows_and_posix_paths() -> None:
+    result = make_result(
+        expected=(r"backend\app\crud\embedding.py",),
+        retrieved=("backend/app/crud/embedding.py",),
+        first_relevant_rank=1,
+    )
+
+    assert hit_rate_at_k([result], 1) == pytest.approx(1.0)
+    assert precision_at_k([result], 1) == pytest.approx(1.0)
+    assert recall_at_k([result], 1) == pytest.approx(1.0)

@@ -1,3 +1,4 @@
+from tests.evals.retrieval.paths import normalize_path
 from sqlalchemy.orm import Session
 
 from app.schemas.retrieval import RetrievalRequest
@@ -25,7 +26,6 @@ class GraphEnhancedRetrievalEvalRunner:
             db,
             baseline_reserve=baseline_reserve,
         )
-        print(f"DEBUG baseline_reserve={baseline_reserve}")
 
     def run_case(
         self,
@@ -43,9 +43,14 @@ class GraphEnhancedRetrievalEvalRunner:
         response = self._service.retrieve(request)
 
         retrieved_paths = tuple(
-            result.file_path for result in response.results
+            normalize_path(result.file_path)
+            for result in response.results
         )
-        expected_paths = tuple(case.expected_file_paths)
+
+        expected_paths = tuple(
+            normalize_path(path)
+            for path in case.expected_file_paths
+        )
 
         first_relevant_rank = next(
             (

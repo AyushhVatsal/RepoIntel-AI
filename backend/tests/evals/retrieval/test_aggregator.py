@@ -1,3 +1,4 @@
+import pytest
 from .aggregator import aggregate_results
 from .models import QueryCategory, RetrievalEvalResult
 
@@ -50,6 +51,41 @@ def test_aggregate_results() -> None:
 
     assert summary.precision_at_1 == 0.5
     assert summary.precision_at_3 == 1 / 3
-    assert summary.precision_at_5 == 1 / 3
+    assert summary.precision_at_5 == 0.2
 
     assert summary.mrr_at_5 == 0.75
+
+def test_redundancy_diagnostics_count_unique_files() -> None:
+    results = [
+        make_result(
+            expected=("a.py",),
+            retrieved=("a.py", "a.py", "b.py", "a.py", "c.py"),
+            first_relevant_rank=1,
+        ),
+    ]
+
+    summary = aggregate_results(results)
+
+    assert summary.unique_file_ratio_at_5 == 3 / 5
+    assert summary.duplicate_chunk_rate_at_5 == 2 / 5
+
+def test_redundancy_diagnostics_use_actual_chunk_count() -> None:
+    results = [
+        make_result(
+            expected=("a.py",),
+            retrieved=("a.py", "a.py", "b.py"),
+            first_relevant_rank=1,
+        ),
+    ]
+
+    summary = aggregate_results(results)
+
+    assert summary.unique_file_ratio_at_5 == 2 / 5
+    assert summary.duplicate_chunk_rate_at_5 == pytest.approx(1 / 3)
+
+
+def test_redundancy_diagnostics_handle_empty_results() -> None:
+    summary = aggregate_results([])
+
+    assert summary.unique_file_ratio_at_5 == 0.0
+    assert summary.duplicate_chunk_rate_at_5 == 0.0
