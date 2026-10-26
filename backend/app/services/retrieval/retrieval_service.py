@@ -46,6 +46,9 @@ class RetrievalService:
         db: Session,
         *,
         conditional_rerank_threshold: float | None = None,
+        candidate_pool_k: int = 20,
+        rrf_weight: float = 0.20,
+        cross_encoder_weight: float = 0.80,
     ) -> None:
         if (
             conditional_rerank_threshold is not None
@@ -54,11 +57,14 @@ class RetrievalService:
             raise ValueError(
                 "conditional_rerank_threshold must be non-negative"
             )
+        if candidate_pool_k < 1:
+            raise ValueError("candidate_pool_k must be at least 1")
 
         self._db = db
         self._conditional_rerank_threshold = (
             conditional_rerank_threshold
         )
+        self._candidate_pool_k = candidate_pool_k
 
         config = EmbeddingConfig()
         provider = get_local_embedding_provider(config.model)
@@ -84,8 +90,8 @@ class RetrievalService:
 
         self._cross_encoder = get_cross_encoder_reranker()
         self._weighted_fusion = WeightedFusion(
-            rrf_weight=0.90,
-            cross_encoder_weight=0.10,
+            rrf_weight=rrf_weight,
+            cross_encoder_weight=cross_encoder_weight,
         )
 
         self._hydrator = RetrievalResultHydrator(db)
@@ -107,7 +113,10 @@ class RetrievalService:
         ) * 1000
 
         # Stage 2: Dense + lexical retrieval and RRF fusion.
+        # Fetch a larger candidate pool so the reranker has enough candidates
+        # to surface relevant results that rank beyond top_k in RRF alone.
         stage_start = perf_counter()
+        candidate_k = max(request.top_k, self._candidate_pool_k)
         rrf_results = self._hybrid_retriever.search(
             query_vector=query_vector,
             repository_id=request.repository_id,
@@ -115,6 +124,7 @@ class RetrievalService:
             query=request.query,
             top_k=request.top_k,
             filters=request.filters,
+            candidate_k=candidate_k,
         )
         hybrid_search_ms = (
             perf_counter() - stage_start

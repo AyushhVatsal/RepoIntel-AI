@@ -1,6 +1,6 @@
 import pytest
-from .aggregator import aggregate_results
-from .models import QueryCategory, RetrievalEvalResult
+from tests.evals.retrieval.aggregator import aggregate_results
+from tests.evals.retrieval.models import QueryCategory, RetrievalEvalResult
 
 
 def make_result(

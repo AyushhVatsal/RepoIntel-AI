@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import sys
 
+# pyrefly: ignore[missing-import]
 from sqlalchemy import func, select
 
 from app.db.database import SessionLocal

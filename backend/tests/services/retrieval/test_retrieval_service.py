@@ -23,6 +23,7 @@ def make_service(
     service = RetrievalService.__new__(RetrievalService)
     service._db = Mock()
     service._conditional_rerank_threshold = threshold
+    service._candidate_pool_k = 20
 
     service._embedding_service = Mock()
     service._embedding_service.embed_query.return_value = [0.1] * 384
