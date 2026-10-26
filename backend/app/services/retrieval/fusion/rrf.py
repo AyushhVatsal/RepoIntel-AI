@@ -24,7 +24,12 @@ class RRFFusion:
         dense_scores: dict[int, float | None] = {}
 
         for results in result_lists:
+            seen_in_list: set[int] = set()
             for rank, result in enumerate(results, start=1):
+                if result.chunk_id in seen_in_list:
+                    continue
+                seen_in_list.add(result.chunk_id)
+
                 scores[result.chunk_id] = (
                     scores.get(result.chunk_id, 0.0)
                     + 1.0 / (self.k + rank)

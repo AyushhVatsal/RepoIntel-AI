@@ -1,3 +1,4 @@
+# pyrefly: ignore[missing-import]
 from pytest import raises
 
 from app.services.retrieval.fusion.rrf import RRFFusion
@@ -82,3 +83,21 @@ def test_rrf_rejects_invalid_k():
 
     with raises(ValueError, match="k must be greater than 0"):
         RRFFusion(k=-1)
+
+
+def test_rrf_deduplicates_chunks_within_same_list():
+    fusion = RRFFusion(k=60)
+
+    results = fusion.fuse(
+        [
+            [
+                RetrievalResult(chunk_id=1, score=0.9),
+                RetrievalResult(chunk_id=1, score=0.8),
+            ],
+        ],
+        top_k=1,
+    )
+
+    assert len(results) == 1
+    assert results[0].chunk_id == 1
+    assert results[0].score == (1 / 61)

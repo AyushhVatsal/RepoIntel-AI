@@ -1,13 +1,13 @@
 import pytest
 
-from .metrics import (
+from tests.evals.retrieval.metrics import (
     hit_rate_at_k,
     mrr_at_k,
     precision_at_k,
     recall_at_k,
     ndcg_at_k,
 )
-from .models import (
+from tests.evals.retrieval.models import (
     QueryCategory,
     RetrievalEvalResult,
 )

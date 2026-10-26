@@ -44,11 +44,7 @@ class HybridRetriever:
             else top_k
         )
 
-        dense_candidate_k = (
-            max(retrieval_k, 20)
-            if candidate_k is not None
-            else top_k
-        )
+        dense_candidate_k = max(retrieval_k, 20)
 
         # 1. Dense vector retrieval.
         dense_chunks = self.vector_retriever.search(
@@ -99,7 +95,8 @@ class HybridRetriever:
         )
 
         # 5. Fuse dense and lexical results using RRF.
+        fuse_top_k = retrieval_k if candidate_k is not None else top_k
         return self.fusion.fuse(
             [dense_results, lexical_results],
-            top_k=dense_candidate_k,
+            top_k=fuse_top_k,
         )

@@ -32,7 +32,7 @@ class GraphEnhancedRetrievalService:
         graph_candidate_multiplier: int = 5,
         max_graph_candidates: int = 100,
         max_graph_candidates_per_file: int = 2,
-        baseline_reserve: int = 0,
+        baseline_reserve: int = -1,
     ) -> None:
         if max_hops < 0:
             raise ValueError("max_hops must be non-negative")
@@ -48,18 +48,15 @@ class GraphEnhancedRetrievalService:
             raise ValueError(
                 "max_graph_candidates_per_file must be at least 1"
             )
-        if baseline_reserve < 0:
+        if baseline_reserve < -1:
             raise ValueError(
-                "baseline_reserve must be non-negative"
+                "baseline_reserve must be non-negative or -1 (auto)"
             )
 
         self._baseline_service = (
             baseline_service
             if baseline_service is not None
-            else RetrievalService(
-                db,
-                conditional_rerank_threshold=0.001,
-            )
+            else RetrievalService(db)
         )
         self._graph_retriever = (
             graph_retriever
@@ -194,12 +191,19 @@ class GraphEnhancedRetrievalService:
         selection_ms = (perf_counter() - stage_started) * 1000
 
         # Stage 4: Fuse baseline and graph evidence.
+        # Use request.top_k as baseline_reserve when auto (-1) so that genuine
+        # baseline hits cannot be displaced by unverified graph candidates.
         stage_started = perf_counter()
+        effective_reserve = (
+            request.top_k
+            if self._baseline_reserve == -1
+            else self._baseline_reserve
+        )
         fused_results = self._graph_fusion.fuse(
             baseline_results=baseline_results,
             graph_results=graph_results,
             top_k=request.top_k,
-            baseline_reserve=self._baseline_reserve,
+            baseline_reserve=effective_reserve,
         )
         fusion_ms = (perf_counter() - stage_started) * 1000
 
