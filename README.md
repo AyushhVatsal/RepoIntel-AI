@@ -65,7 +65,13 @@ graph TD
 
 **Repository isolation.** Retrieval is scoped to a specific repository so unrelated repositories do not contribute results.
 
-**Retrieval evaluation.** The system includes an evaluation pipeline with Hit Rate@K, Recall@K, Precision@K, MRR, nDCG, and per-query failure analysis.
+**Hybrid retrieval.** Dense vector search and repository-scoped BM25 are combined with Reciprocal Rank Fusion (RRF). BM25 indexes code text and supports code identifiers, with extra configuration terms for embedding model, batch size, dimensions, and provider questions.
+
+**Cross-encoder reranking.** A local cross-encoder reranks hybrid candidates. Production fusion keeps hybrid relevance as the main signal and uses the cross-encoder as supporting evidence; reranker loading is lazy and inputs are capped to limit latency.
+
+**Graph retrieval experiments.** A separate graph-enhanced retrieval service expands candidates through repository relationships and scores them against the query. The production Swagger route remains the single hybrid + conditional-reranking endpoint; graph modes are evaluated through offline runners.
+
+**Retrieval diagnostics.** The API can report stage latency, whether reranking ran, ranking policy, and dense, hybrid, and cross-encoder scores. Offline evaluation reports Hit@K, Recall@K, Precision@K, MRR, nDCG, and query-level results.
 
 ---
 
@@ -120,19 +126,56 @@ RepoIntel-AI/
 
 ---
 
-## Evaluation
+## Retrieval Evaluation
 
-Current V1 baseline:
+Results below were measured on the local RepoIntel-AI indexed corpus (repository ID `49`, 121 files, 847 chunks; 633 source chunks after excluding tests and fixtures). They are benchmark snapshots, not guarantees for other repositories. V1 uses eight labeled queries; V2 uses 50 answerable queries across conceptual, identifier, configuration, and path categories, plus eight no-answer queries.
 
-| Metric | @1 | @3 | @5 |
-|---|---:|---:|---:|
-| Hit Rate | 0.375 | 0.875 | 1.000 |
-| Recall | 0.229 | 0.708 | 0.917 |
-| Precision | 0.375 | 0.375 | 0.300 |
+### V2 layer comparison
 
-**MRR@5:** 0.608
+Quality metrics are percentages. `MRR@5` and `nDCG@5` are also shown as percentages for readability.
 
-The baseline is kept frozen so future retrieval improvements can be measured against it.
+| Retrieval layer | Hit@1 | Hit@3 | Hit@5 | Recall@5 | Precision@5 | MRR@5 | nDCG@5 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Dense only | 56.0 | 90.0 | 94.0 | **90.3** | **26.8** | **71.7** | **73.3** |
+| BM25 only | 42.0 | 72.0 | 82.0 | 71.0 | 19.6 | 56.8 | 56.8 |
+| Hybrid RRF only | 50.0 | 84.0 | 94.0 | 85.0 | 24.0 | 68.7 | 68.5 |
+| Cross-encoder reranking | 52.0 | 82.0 | 90.0 | 84.7 | 24.8 | 67.9 | 68.7 |
+| Weighted RRF + cross-encoder | 54.0 | 86.0 | 94.0 | 85.0 | 24.0 | 71.0 | 69.5 |
+| Production hybrid baseline | 54.0 | 88.0 | 94.0 | 85.0 | 24.0 | 71.7 | 70.1 |
+| Graph enhanced | 54.0 | 80.0 | 92.0 | 82.3 | 23.2 | 69.0 | 67.4 |
+| Graph-only, dense-seeded | 46.0 | 48.0 | 58.0 | 43.3 | 12.0 | 49.2 | 40.6 |
+
+Dense led V2 on Recall@5 and nDCG@5. BM25 was strongest for exact identifiers (Recall@5 100.0%, MRR@5 80.6%) and weaker for conceptual queries (Recall@5 50.0%). The no-answer false-positive rate was **100%** for every tested layer: the current retrieval pipeline does not abstain when evidence is weak.
+
+### Latest V1 retrieval checks
+
+The latest focused eight-query checks after the configuration-query ranking changes produced:
+
+| Layer | Hit@1 | Hit@3 | Hit@5 | Recall@5 | Precision@5 | MRR@5 | nDCG@5 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Hybrid-only | 62.5 | 100.0 | 100.0 | 91.7 | 27.5 | 79.2 | 77.1 |
+| Graph-enhanced | 62.5 | 100.0 | 100.0 | 83.3 | 22.5 | 81.3 | 73.7 |
+| V2.2 cross-encoder + 90/10 fusion | 37.5 | 100.0 | 100.0 | 87.5 | 25.0 | 64.6 | 64.2 |
+
+The V2.2 cross-encoder result still misses its Recall@5 threshold of 91.6%. The retrieval test suite is therefore **not fully green**; the last full run was 207 passed, 3 failed, and 1 skipped. The latest focused rerun passed 32 checks and still failed the V2.2 Recall@5 gate. Do not treat the V1 and V2 tables as directly comparable: they use different query sets and evaluation modes.
+
+### Latency snapshots
+
+Earlier offline V2 runner results, median / p95 milliseconds per query (model initialization excluded):
+
+| Layer | p50 ms | p95 ms |
+|---|---:|---:|
+| Dense only | 15.8 | 28.6 |
+| BM25 only, warm | 1.5 | 2.5 |
+| Hybrid RRF only | 17.4 | 23.0 |
+| Cross-encoder reranking | 426.5 | 482.1 |
+| Weighted RRF + cross-encoder | 205.7 | 239.0 |
+| Production hybrid | 60.4 | 291.0 |
+| Graph enhanced | 238.2 | 1,835.9 |
+
+BM25's first query, including index construction, measured 46.7 ms in that run. Latency varies by machine, warmup, and concurrent load. The most recent ranking changes have **not** been followed by a new latency benchmark, so these are historical measurements rather than current latency guarantees.
+
+For detailed pre-PR/post-PR comparisons, Swagger instructions, query labels, and rerun commands, see [`reports/retrieval-quality/retrieval-evaluation-and-swagger-guide.md`](reports/retrieval-quality/retrieval-evaluation-and-swagger-guide.md).
 
 ---
 
@@ -186,18 +229,20 @@ uv run pytest
 - Embedding pipeline ✅
 - PostgreSQL + pgvector ✅
 - HNSW indexing ✅
-- Repository-scoped retrieval ✅
-- Retrieval evaluation ✅
+- Dense + BM25 hybrid retrieval ✅
+- Conditional cross-encoder reranking ✅
+- Graph-enhanced retrieval evaluation ✅
+- Retrieval quality and latency instrumentation ✅
+- Expanded retrieval evaluation suite ✅
 
 ---
 
 ## Roadmap
 
-- Hybrid retrieval
-- Reranking
+- Improve no-answer abstention
+- Raise cross-encoder recall on configuration questions
+- Rebenchmark latency after the latest ranking changes
 - Context pruning
-- Dependency graphs
-- Graph-enhanced retrieval
 - Architecture analysis
 - Repository-aware codebase chat
 
