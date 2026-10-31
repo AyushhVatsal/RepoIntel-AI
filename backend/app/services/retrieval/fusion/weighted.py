@@ -117,6 +117,12 @@ class WeightedFusion:
                     score=final_score,
                     dense_score=original.dense_score,
                     retrieval_score=final_score,
+                    cross_encoder_score=cross_encoder_scores.get(
+                        chunk_id
+                    ),
+                    hybrid_score=(
+                        original.hybrid_score or original.score
+                    ),
                 )
             )
 

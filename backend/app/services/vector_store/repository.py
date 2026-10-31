@@ -20,7 +20,10 @@ class VectorStoreRepository:
         top_k: int,
         score_threshold: float | None = None,
         filters: RetrievalFilters | None = None,
+        candidate_chunk_ids: list[int] | None = None,
     ) -> list[VectorSearchResult]:
+        if candidate_chunk_ids is not None and not candidate_chunk_ids:
+            return []
         distance = Embedding.embedding.cosine_distance(
             query_vector
         )
@@ -30,6 +33,7 @@ class VectorStoreRepository:
         stmt = (
             select(
                 Chunk,
+                RepositoryFile.relative_path,
                 similarity.label("score"),
             )
             .join(
@@ -83,6 +87,9 @@ class VectorStoreRepository:
                     ~RepositoryFile.role.in_(filters.exclude_roles)
                 )
 
+        if candidate_chunk_ids is not None:
+            stmt = stmt.where(Chunk.id.in_(candidate_chunk_ids))
+
         stmt = (
             stmt
             .order_by(distance)
@@ -100,6 +107,7 @@ class VectorStoreRepository:
             VectorSearchResult(
                 chunk=chunk,
                 score=float(score),
+                file_path=file_path,
             )
-            for chunk, score in rows
+            for chunk, file_path, score in rows
         ]

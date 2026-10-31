@@ -3,15 +3,14 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
-
 from app.schemas.retrieval import (
-    RetrievedChunk,
     RetrievalRequest,
     RetrievalResponse,
+    RetrievedChunk,
 )
 from app.services.retrieval import retrieval_service as service_module
-from app.services.retrieval.retrieval_service import RetrievalService
 from app.services.retrieval.result import RetrievalResult
+from app.services.retrieval.retrieval_service import RetrievalService
 
 
 def make_service(
@@ -110,7 +109,7 @@ def test_retrieval_service_defaults_to_always_rerank(
 def test_retrieval_service_skips_reranking_when_score_gap_is_large(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    service, rrf_results = make_service(
+    service, _rrf_results = make_service(
         monkeypatch,
         threshold=0.001,
     )

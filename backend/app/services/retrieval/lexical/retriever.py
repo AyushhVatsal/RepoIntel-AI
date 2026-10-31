@@ -79,7 +79,31 @@ class LexicalRetriever:
                     ~RepositoryFile.role.in_(filters.exclude_roles)
                 )
                 
+        # Role-only filters are stable across queries and should not force a
+        # full BM25 rebuild on every request. Query-specific filters still use
+        # a temporary index so results cannot leak across filter settings.
+        cacheable = not filters or not any(
+            (
+                filters.language,
+                filters.file_path,
+                filters.chunk_type,
+                filters.symbol_name,
+            )
+        )
+        filter_key = None
         if filters:
+            filter_key = (
+                filters.role.value if filters.role is not None else None,
+                tuple(sorted(role.value for role in filters.exclude_roles or [])),
+            )
+
+        index = (
+            self.index_manager.get(repository_id, filter_key)
+            if cacheable
+            else None
+        )
+
+        if index is None:
             chunks = self.db.scalars(stmt).all()
 
             if not chunks:
@@ -89,33 +113,20 @@ class LexicalRetriever:
                 LexicalDocument(
                     chunk_id=chunk.id,
                     content=chunk.content,
+                    symbol_name=chunk.symbol_name,
+                    qualified_name=chunk.qualified_name,
                 )
                 for chunk in chunks
             ]
 
-            index = self.index_manager.build_temporary(documents)
-
-        else:
-            index = self.index_manager.get(repository_id)
-
-            if index is None:
-                chunks = self.db.scalars(stmt).all()
-
-                if not chunks:
-                    return []
-
-                documents = [
-                    LexicalDocument(
-                        chunk_id=chunk.id,
-                        content=chunk.content,
-                    )
-                    for chunk in chunks
-                ]
-
+            if cacheable:
                 index = self.index_manager.build(
                     repository_id,
                     documents,
+                    filter_key=filter_key,
                 )
+            else:
+                index = self.index_manager.build_temporary(documents)
 
         return index.search(
             query=query,

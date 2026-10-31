@@ -1,12 +1,11 @@
 from pathlib import Path
 
 from app.db.database import SessionLocal
-
+from app.models.repository_file import FileRole
+from app.services.retrieval.filters import RetrievalFilters
 from tests.evals.retrieval.aggregator import aggregate_results
 from tests.evals.retrieval.dense_runner import DenseEvalRunner
 from tests.evals.retrieval.loader import load_retrieval_eval_cases
-from app.models.repository_file import FileRole
-from app.services.retrieval.filters import RetrievalFilters
 
 
 def test_dense_unfiltered() -> None:
@@ -61,3 +60,9 @@ def test_dense_unfiltered() -> None:
 
     finally:
         db.close()
+
+    # Frozen-set quality floor: dense retrieval is the reference path.
+    assert summary.hit_rate_at_5 >= 1.0
+    assert summary.recall_at_5 >= 0.95
+    assert summary.mrr_at_5 >= 0.83
+    assert summary.ndcg_at_5 >= 0.82

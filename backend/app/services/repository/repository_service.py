@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+from functools import lru_cache
 from pathlib import Path
 
 from sqlalchemy.orm import Session
@@ -594,4 +595,11 @@ class RepositoryService:
         )
 
 
-repository_service = RepositoryService()
+@lru_cache(maxsize=1)
+def get_repository_service() -> RepositoryService:
+    """Create the indexing pipeline only when a repository operation needs it.
+
+    Importing API routes or unit tests must not eagerly initialize chunkers,
+    tokenizers, or embedding providers (some of which load local assets).
+    """
+    return RepositoryService()

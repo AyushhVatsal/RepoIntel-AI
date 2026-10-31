@@ -1,4 +1,3 @@
-from tests.evals.retrieval.paths import normalize_path
 from sqlalchemy.orm import Session
 
 from app.schemas.retrieval import RetrievalRequest
@@ -6,11 +5,11 @@ from app.services.retrieval.filters import RetrievalFilters
 from app.services.retrieval.graph_enhanced_service import (
     GraphEnhancedRetrievalService,
 )
-
 from tests.evals.retrieval.models import (
     RetrievalEvalCase,
     RetrievalEvalResult,
 )
+from tests.evals.retrieval.paths import normalize_path
 
 
 class GraphEnhancedRetrievalEvalRunner:
@@ -20,7 +19,7 @@ class GraphEnhancedRetrievalEvalRunner:
         self,
         db: Session,
         *,
-        baseline_reserve: int = 0,
+        baseline_reserve: int = -1,
     ) -> None:
         self._service = GraphEnhancedRetrievalService(
             db,

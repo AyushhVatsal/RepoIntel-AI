@@ -51,6 +51,7 @@ class VectorStoreService:
         top_k: int = 10,
         score_threshold: float | None = None,
         filters: RetrievalFilters | None = None,
+        candidate_chunk_ids: list[int] | None = None,
     ) -> list[VectorSearchResult]:
         if repository_id <= 0:
             raise ValueError(
@@ -87,4 +88,5 @@ class VectorStoreService:
             top_k=top_k,
             score_threshold=score_threshold,
             filters=filters,
+            candidate_chunk_ids=candidate_chunk_ids,
         )

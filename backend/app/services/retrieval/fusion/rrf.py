@@ -54,6 +54,7 @@ class RRFFusion:
             score=rrf_score,
             dense_score=dense_scores[chunk_id],
             retrieval_score=rrf_score,
+            hybrid_score=rrf_score,
         )
         for chunk_id, rrf_score in ranked_results[:top_k]
     ]

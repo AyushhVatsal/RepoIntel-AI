@@ -1,0 +1,10 @@
+[
+  {"id":"no_answer_001","category":"no_answer","query":"Where is the Redis vector cache implementation?","repository_id":49,"expected_file_paths":[]},
+  {"id":"no_answer_002","category":"no_answer","query":"Show me the GraphQL API router implementation.","repository_id":49,"expected_file_paths":[]},
+  {"id":"no_answer_003","category":"no_answer","query":"Where is the React frontend login form component?","repository_id":49,"expected_file_paths":[]},
+  {"id":"no_answer_004","category":"no_answer","query":"Find the Kubernetes deployment manifests.","repository_id":49,"expected_file_paths":[]},
+  {"id":"no_answer_005","category":"no_answer","query":"Which Go package parses Rust source files?","repository_id":49,"expected_file_paths":[]},
+  {"id":"no_answer_006","category":"no_answer","query":"Where is MongoDB persistence configured?","repository_id":49,"expected_file_paths":[]},
+  {"id":"no_answer_007","category":"no_answer","query":"Find the websocket notification service.","repository_id":49,"expected_file_paths":[]},
+  {"id":"no_answer_008","category":"no_answer","query":"Where is the OAuth refresh token rotation endpoint?","repository_id":49,"expected_file_paths":[]}
+]

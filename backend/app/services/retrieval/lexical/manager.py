@@ -7,22 +7,34 @@ class BM25IndexManager:
     """Manage repository-scoped BM25 indexes."""
 
     def __init__(self) -> None:
-        self._indexes: dict[int, BM25Index] = {}
+        self._indexes: dict[tuple[int, tuple[object, ...] | None], BM25Index] = {}
 
-    def get(self, repository_id: int) -> BM25Index | None:
+    @staticmethod
+    def _key(
+        repository_id: int,
+        filter_key: tuple[object, ...] | None,
+    ) -> tuple[int, tuple[object, ...] | None]:
+        return repository_id, filter_key
+
+    def get(
+        self,
+        repository_id: int,
+        filter_key: tuple[object, ...] | None = None,
+    ) -> BM25Index | None:
         """Return the cached index for a repository, if available."""
-        return self._indexes.get(repository_id)
+        return self._indexes.get(self._key(repository_id, filter_key))
 
     def build(
         self,
         repository_id: int,
         documents: list[LexicalDocument],
+        filter_key: tuple[object, ...] | None = None,
     ) -> BM25Index:
         """Build and cache a BM25 index for a repository."""
         index = BM25Index()
         index.build(documents)
 
-        self._indexes[repository_id] = index
+        self._indexes[self._key(repository_id, filter_key)] = index
 
         return index
 
@@ -38,7 +50,9 @@ class BM25IndexManager:
 
     def invalidate(self, repository_id: int) -> None:
         """Remove the cached index for a repository."""
-        self._indexes.pop(repository_id, None)
+        keys = [key for key in self._indexes if key[0] == repository_id]
+        for key in keys:
+            self._indexes.pop(key, None)
 
     def clear(self) -> None:
         """Remove all cached repository indexes."""

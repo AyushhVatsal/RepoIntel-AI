@@ -3,7 +3,6 @@ from pathlib import Path
 from app.db.database import SessionLocal
 from app.models.repository_file import FileRole
 from app.services.retrieval.filters import RetrievalFilters
-
 from tests.evals.retrieval.aggregator import aggregate_results
 from tests.evals.retrieval.loader import load_retrieval_eval_cases
 from tests.evals.retrieval.v22_runner import V22RetrievalEvalRunner
@@ -76,3 +75,8 @@ def test_run_v22_retrieval_evaluation() -> None:
         db.close()
 
     assert len(results) == len(cases)
+    # Keep the cross-encoder path at or above its pre-fix frozen baseline.
+    assert summary.hit_rate_at_5 >= 1.0
+    assert summary.recall_at_5 >= 0.916
+    assert summary.mrr_at_5 >= 0.691
+    assert summary.ndcg_at_5 >= 0.692

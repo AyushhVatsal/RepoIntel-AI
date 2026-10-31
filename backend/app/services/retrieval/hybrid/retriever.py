@@ -44,7 +44,8 @@ class HybridRetriever:
             else top_k
         )
 
-        dense_candidate_k = max(retrieval_k, 20)
+        # Use the caller's candidate budget to bound dense and lexical work.
+        dense_candidate_k = retrieval_k
 
         # 1. Dense vector retrieval.
         dense_chunks = self.vector_retriever.search(

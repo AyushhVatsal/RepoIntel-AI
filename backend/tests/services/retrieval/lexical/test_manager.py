@@ -1,5 +1,8 @@
 from app.services.retrieval.lexical.index import LexicalDocument
-from app.services.retrieval.lexical.manager import BM25IndexManager, get_bm25_index_manager
+from app.services.retrieval.lexical.manager import (
+    BM25IndexManager,
+    get_bm25_index_manager,
+)
 
 
 def test_get_returns_none_for_uncached_repository():
@@ -69,6 +72,23 @@ def test_invalidate_removes_repository_index():
     manager.invalidate(1)
 
     assert manager.get(1) is None
+
+
+def test_filtered_indexes_are_cached_independently_and_invalidated_together():
+    manager = BM25IndexManager()
+    filter_key = (None, ("fixture", "test"))
+    documents = [
+        LexicalDocument(chunk_id=1, content="authenticate_user"),
+    ]
+
+    index = manager.build(1, documents, filter_key=filter_key)
+
+    assert manager.get(1, filter_key) is index
+    assert manager.get(1) is None
+
+    manager.invalidate(1)
+
+    assert manager.get(1, filter_key) is None
 
 
 def test_clear_removes_all_indexes():

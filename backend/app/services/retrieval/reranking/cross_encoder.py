@@ -37,7 +37,17 @@ class CrossEncoderReranker:
             for result in candidates
         ]
 
-        scores = self._model.predict(pairs)
+        scores = self._model.predict(
+            pairs,
+            batch_size=16,
+            show_progress_bar=False,
+            processing_kwargs={
+                "text": {
+                    "max_length": 512,
+                    "truncation": True,
+                }
+            },
+        )
 
         reranked = [
             RetrievalResult(
@@ -45,6 +55,8 @@ class CrossEncoderReranker:
                 score=float(score),
                 dense_score=result.dense_score,
                 retrieval_score=float(score),
+                cross_encoder_score=float(score),
+                hybrid_score=result.hybrid_score or result.score,
             )
             for result, score in zip(
                 candidates,

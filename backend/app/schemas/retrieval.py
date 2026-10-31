@@ -42,6 +42,10 @@ class RetrievedChunk(BaseModel):
 
     similarity_score: float | None = None
 
+    hybrid_score: float | None = None
+
+    cross_encoder_score: float | None = None
+
     retrieval_score: float | None = None
 
 class RetrievalResponse(BaseModel):
@@ -50,5 +54,15 @@ class RetrievalResponse(BaseModel):
     repository_id: int
 
     query: str
+
+    latency_ms: float | None = None
+
+    reranking_applied: bool | None = None
+
+    reranking_skip_reason: str | None = None
+
+    ranking_policy: str | None = None
+
+    latency_breakdown_ms: dict[str, float] | None = None
 
     results: list[RetrievedChunk]

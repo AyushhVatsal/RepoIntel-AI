@@ -5,6 +5,7 @@ from app.services.embedding.providers.local import LocalEmbeddingProvider
 from app.services.embedding.service import EmbeddingService
 from app.services.retrieval.candidate_filter import RetrievalCandidateFilter
 from app.services.retrieval.fusion.rrf import RRFFusion
+from app.services.retrieval.fusion.weighted import WeightedFusion
 from app.services.retrieval.hydrator import RetrievalResultHydrator
 from app.services.retrieval.hybrid.retriever import HybridRetriever
 from app.services.retrieval.lexical.manager import BM25IndexManager
@@ -60,6 +61,10 @@ class V22RetrievalEvalRunner:
 
         self._hydrator = RetrievalResultHydrator(db)
         self._reranker = CrossEncoderReranker()
+        self._weighted_fusion = WeightedFusion(
+            rrf_weight=0.90,
+            cross_encoder_weight=0.10,
+        )
 
     def run_case(
         self,
@@ -95,11 +100,17 @@ class V22RetrievalEvalRunner:
             query=case.query,
             results=retrieval_results,
             documents=documents,
+            top_k=len(retrieval_results),
+        )
+
+        fused = self._weighted_fusion.fuse(
+            rrf_results=retrieval_results,
+            cross_encoder_results=reranked,
             top_k=k,
         )
 
         reranked_chunks = self._hydrator.hydrate(
-            reranked,
+            fused,
         )
 
         retrieved_file_paths = tuple(

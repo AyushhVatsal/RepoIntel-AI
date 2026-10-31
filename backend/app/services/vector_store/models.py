@@ -7,3 +7,4 @@ from app.models.chunk import Chunk
 class VectorSearchResult:
     chunk: Chunk
     score: float
+    file_path: str | None = None

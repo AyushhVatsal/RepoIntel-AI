@@ -89,6 +89,7 @@ class GraphFusion:
 
         # Keep the shortest graph distance for each candidate.
         graph_hops: dict[int, int] = {}
+        graph_query_scores: dict[int, float] = {}
         for result in graph_results:
             if result.hop_count < 0:
                 raise ValueError("graph hop_count must be non-negative")
@@ -96,6 +97,13 @@ class GraphFusion:
             previous_hop = graph_hops.get(result.chunk_id)
             if previous_hop is None or result.hop_count < previous_hop:
                 graph_hops[result.chunk_id] = result.hop_count
+            if result.query_score is not None:
+                graph_query_scores[result.chunk_id] = max(
+                    graph_query_scores.get(result.chunk_id, float("-inf")),
+                    result.query_score,
+                )
+
+        normalized_graph = self._normalize(graph_query_scores)
 
         candidate_ids = sorted(set(baseline_by_id) | set(graph_hops))
         fused_by_id: dict[int, RetrievalResult] = {}
@@ -104,11 +112,14 @@ class GraphFusion:
             baseline_result = baseline_by_id.get(chunk_id)
             baseline_score = normalized_baseline.get(chunk_id, 0.0)
 
-            graph_score = (
-                1.0 / (graph_hops[chunk_id] + 1)
-                if chunk_id in graph_hops
-                else 0.0
-            )
+            if chunk_id not in graph_hops:
+                graph_score = 0.0
+            elif graph_query_scores:
+                graph_score = normalized_graph.get(chunk_id, 0.0) / (
+                    graph_hops[chunk_id] + 1
+                )
+            else:
+                graph_score = 1.0 / (graph_hops[chunk_id] + 1)
 
             final_score = (
                 self._baseline_weight * baseline_score

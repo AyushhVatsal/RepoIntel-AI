@@ -1,11 +1,11 @@
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.crud.chunk import chunk_crud
-from app.crud.repository_file import repository_file_crud
+from app.models.chunk import Chunk
+from app.models.repository_file import RepositoryFile
 from app.services.retrieval.filters import RetrievalFilters
 from app.services.retrieval.lexical.manager import BM25IndexManager
 from app.services.retrieval.lexical.retriever import LexicalRetriever
-
 from tests.evals.retrieval.models import (
     RetrievalEvalCase,
     RetrievalEvalResult,
@@ -38,27 +38,17 @@ class BM25EvalRunner:
             filters=filters,
         )
 
-        retrieved_file_paths: list[str] = []
-
-        for result in results:
-            chunk = chunk_crud.get(
-                self._db,
-                result.chunk_id,
-            )
-
-            if chunk is None:
-                continue
-
-            repository_file = repository_file_crud.get(
-                self._db,
-                chunk.file_id,
-            )
-
-            retrieved_file_paths.append(
-                repository_file.relative_path
-                if repository_file is not None
-                else "unknown"
-            )
+        path_rows = self._db.execute(
+            select(Chunk.id, RepositoryFile.relative_path)
+            .join(RepositoryFile, Chunk.file_id == RepositoryFile.id)
+            .where(Chunk.id.in_([result.chunk_id for result in results]))
+        ).all() if results else []
+        paths_by_chunk_id = dict(path_rows)
+        retrieved_file_paths = [
+            paths_by_chunk_id[result.chunk_id]
+            for result in results
+            if result.chunk_id in paths_by_chunk_id
+        ]
 
         retrieved_file_paths_tuple = tuple(
             retrieved_file_paths

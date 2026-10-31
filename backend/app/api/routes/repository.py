@@ -28,7 +28,7 @@ from app.schemas.repository_file import RepositoryFileResponse
 from app.schemas.repository_symbol import RepositorySymbolResponse
 from app.crud.repository_symbol import repository_symbol_crud
 from app.services.repository.repository_service import (
-    repository_service,
+    get_repository_service,
 )
 
 router = APIRouter(
@@ -49,7 +49,7 @@ def create_repository(
 ) -> RepositoryResponse:
 
     try:
-        return repository_service.index_repository(
+        return get_repository_service().index_repository(
             db=db,
             owner_id=current_user.id,
             repository_in=repository_in,
@@ -96,7 +96,7 @@ def list_repositories(
     current_user: User = Depends(get_current_active_user),
 ) -> list[RepositoryResponse]:
 
-    return repository_service.list_repositories(
+    return get_repository_service().list_repositories(
         db=db,
         owner_id=current_user.id,
     )
@@ -113,7 +113,7 @@ def get_repository(
 ) -> RepositoryResponse:
 
     try:
-        return repository_service.get_repository(
+        return get_repository_service().get_repository(
             db=db,
             repository_id=repository_id,
             owner_id=current_user.id,
@@ -137,7 +137,7 @@ def list_repository_files(
 ) -> list[RepositoryFileResponse]:
 
     try:
-        return repository_service.list_repository_files(
+        return get_repository_service().list_repository_files(
             db=db,
             repository_id=repository_id,
             owner_id=current_user.id,
@@ -167,7 +167,7 @@ def list_repository_symbols(
     """
     try:
         # Verify repository ownership
-        repository_service.get_repository(
+        get_repository_service().get_repository(
             db=db,
             repository_id=repository_id,
             owner_id=current_user.id,
@@ -198,7 +198,7 @@ def delete_repository(
 ) -> Response:
 
     try:
-        repository_service.delete_repository(
+        get_repository_service().delete_repository(
             db=db,
             repository_id=repository_id,
             owner_id=current_user.id,

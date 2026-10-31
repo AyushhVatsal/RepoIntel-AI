@@ -73,6 +73,38 @@ def test_exact_identifier_gets_high_lexical_score():
     assert results[0].score > results[1].score
 
 
+def test_symbol_metadata_improves_exact_identifier_matching():
+    index = BM25Index()
+    index.build(
+        [
+            LexicalDocument(
+                chunk_id=1,
+                content="return repository.lookup(value)",
+                symbol_name="resolve_account_permissions",
+            ),
+            LexicalDocument(
+                chunk_id=2,
+                content="def resolve_account_permissions(value):",
+                symbol_name="unrelated_helper",
+            ),
+            *[
+                LexicalDocument(
+                    chunk_id=chunk_id,
+                    content="unrelated utility implementation",
+                )
+                for chunk_id in range(3, 9)
+            ],
+        ]
+    )
+
+    results = index.search(
+        query="resolve_account_permissions",
+        top_k=2,
+    )
+
+    assert results[0].chunk_id == 1
+
+
 def test_empty_index_returns_empty_results():
     index = BM25Index()
 

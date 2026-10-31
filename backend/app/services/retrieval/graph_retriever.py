@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Literal, Sequence
+from typing import Literal
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.models.graph_edge import GraphEdge, GraphEdgeType
 from app.models.graph_node import GraphNode, GraphNodeType
-
 
 TraversalDirection = Literal["outgoing", "incoming", "both"]
 
@@ -26,6 +26,7 @@ class GraphRetrievalResult:
     file_id: int
     hop_count: int
     score: float
+    query_score: float | None = None
 
 
 class GraphRetriever:

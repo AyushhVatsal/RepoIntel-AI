@@ -4,10 +4,9 @@ from pathlib import Path
 from app.db.database import SessionLocal
 from app.models.repository_file import FileRole
 from app.services.retrieval.filters import RetrievalFilters
-
 from tests.evals.retrieval.aggregator import aggregate_results
-from tests.evals.retrieval.hybrid_only_runner import (
-    HybridOnlyRetrievalEvalRunner,
+from tests.evals.retrieval.rrf_only_runner import (
+    RRFOnlyRetrievalEvalRunner,
 )
 from tests.evals.retrieval.loader import load_retrieval_eval_cases
 
@@ -19,7 +18,7 @@ def test_run_hybrid_only_retrieval_evaluation() -> None:
     db = SessionLocal()
 
     try:
-        runner = HybridOnlyRetrievalEvalRunner(db)
+        runner = RRFOnlyRetrievalEvalRunner(db)
         results = runner.run(
             cases=cases,
             k=5,
@@ -62,3 +61,8 @@ def test_run_hybrid_only_retrieval_evaluation() -> None:
         db.close()
 
     assert len(results) == len(cases)
+    # Do not regress below the pre-fix frozen-set baseline.
+    assert summary.hit_rate_at_5 >= 1.0
+    assert summary.recall_at_5 >= 0.916
+    assert summary.mrr_at_5 >= 0.775
+    assert summary.ndcg_at_5 >= 0.760

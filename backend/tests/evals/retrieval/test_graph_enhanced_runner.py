@@ -4,7 +4,6 @@ from pathlib import Path
 from app.db.database import SessionLocal
 from app.models.repository_file import FileRole
 from app.services.retrieval.filters import RetrievalFilters
-
 from tests.evals.retrieval.aggregator import aggregate_results
 from tests.evals.retrieval.graph_enhanced_runner import (
     GraphEnhancedRetrievalEvalRunner,
@@ -19,7 +18,7 @@ def test_run_graph_enhanced_retrieval_evaluation() -> None:
     db = SessionLocal()
 
     try:
-        baseline_reserve = int(os.getenv("GRAPH_BASELINE_RESERVE", "0"))
+        baseline_reserve = int(os.getenv("GRAPH_BASELINE_RESERVE", "-1"))
         runner = GraphEnhancedRetrievalEvalRunner(
             db=db,
             baseline_reserve=baseline_reserve,
@@ -58,3 +57,8 @@ def test_run_graph_enhanced_retrieval_evaluation() -> None:
         db.close()
 
     assert len(results) == len(cases)
+    # Graph augmentation must not fall below the pre-fix graph baseline.
+    assert summary.hit_rate_at_5 >= 0.875
+    assert summary.recall_at_5 >= 0.75
+    assert summary.mrr_at_5 >= 0.75
+    assert summary.ndcg_at_5 >= 0.681

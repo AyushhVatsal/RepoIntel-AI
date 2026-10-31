@@ -1,6 +1,5 @@
 from sqlalchemy.orm import Session
 
-from app.crud.repository_file import repository_file_crud
 from app.schemas.retrieval import RetrievedChunk
 from app.services.retrieval.filters import RetrievalFilters
 from app.services.vector_store.service import VectorStoreService
@@ -10,7 +9,6 @@ class VectorRetriever:
     """Retrieves relevant chunks using the existing vector store."""
 
     def __init__(self, db: Session) -> None:
-        self._db = db
         self._vector_store = VectorStoreService(db)
 
     def search(
@@ -21,6 +19,7 @@ class VectorRetriever:
         model: str,
         top_k: int,
         filters: RetrievalFilters | None = None,
+        candidate_chunk_ids: list[int] | None = None,
     ) -> list[RetrievedChunk]:
         """Perform repository-scoped vector similarity search."""
 
@@ -30,6 +29,7 @@ class VectorRetriever:
             model=model,
             top_k=top_k,
             filters=filters,
+            candidate_chunk_ids=candidate_chunk_ids,
         )
 
         retrieved_chunks = []
@@ -37,22 +37,11 @@ class VectorRetriever:
         for result in results:
             chunk = result.chunk
 
-            repository_file = repository_file_crud.get(
-                self._db,
-                chunk.file_id,
-            )
-
-            file_path = (
-                repository_file.relative_path
-                if repository_file is not None
-                else "unknown"
-            )
-
             retrieved_chunks.append(
                 RetrievedChunk(
                     chunk_id=chunk.id,
                     content=chunk.content,
-                    file_path=file_path,
+                    file_path=result.file_path or "unknown",
                     similarity_score=result.score,
                 )
             )

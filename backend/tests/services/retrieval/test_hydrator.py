@@ -25,22 +25,10 @@ def test_hydrate_preserves_order_and_scores():
     file_2 = MagicMock(spec=RepositoryFile)
     file_2.relative_path = "backend/user.py"
 
-    db_chunks = [chunk_1, chunk_2]
-
-    from app.crud import chunk as chunk_module
-
-    chunk_module.chunk_crud.get_by_ids = MagicMock(
-        return_value=db_chunks,
-    )
-
-    from app.crud import repository_file as file_module
-
-    file_module.repository_file_crud.get = MagicMock(
-        side_effect=lambda db, file_id: {
-            100: file_1,
-            200: file_2,
-        }[file_id],
-    )
+    db.execute.return_value.all.return_value = [
+        (chunk_1, file_1.relative_path),
+        (chunk_2, file_2.relative_path),
+    ]
 
     results = [
         RetrievalResult(

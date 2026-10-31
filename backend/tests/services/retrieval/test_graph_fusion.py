@@ -133,3 +133,29 @@ def test_equal_scores_have_deterministic_tie_breaking():
     )
 
     assert [result.chunk_id for result in results] == [3, 7, 9]
+
+
+def test_query_score_ranks_graph_candidates_with_equal_hop_distance():
+    fusion = GraphFusion(baseline_weight=0.0, graph_weight=1.0)
+    results = fusion.fuse(
+        baseline_results=[],
+        graph_results=[
+            GraphRetrievalResult(
+                chunk_id=8,
+                file_id=2,
+                hop_count=1,
+                score=0.5,
+                query_score=0.2,
+            ),
+            GraphRetrievalResult(
+                chunk_id=9,
+                file_id=3,
+                hop_count=1,
+                score=0.5,
+                query_score=0.9,
+            ),
+        ],
+        top_k=1,
+    )
+
+    assert [result.chunk_id for result in results] == [9]

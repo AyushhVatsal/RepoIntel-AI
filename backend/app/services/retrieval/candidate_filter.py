@@ -1,6 +1,8 @@
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.repository_file import FileRole
+from app.models.chunk import Chunk
+from app.models.repository_file import FileRole, RepositoryFile
 from app.services.retrieval.result import RetrievalResult
 
 
@@ -20,34 +22,18 @@ class RetrievalCandidateFilter:
 
         excluded_roles = set(roles)
 
-        filtered: list[RetrievalResult] = []
-
-        for result in results:
-            role = self._get_role(result.chunk_id)
-
-            if role not in excluded_roles:
-                filtered.append(result)
-
-        return filtered
-
-    def _get_role(
-        self,
-        chunk_id: int,
-    ) -> FileRole | None:
-        from sqlalchemy import select
-
-        from app.models.chunk import Chunk
-        from app.models.repository_file import RepositoryFile
-
+        chunk_ids = {result.chunk_id for result in results}
         stmt = (
-            select(RepositoryFile.role)
+            select(Chunk.id, RepositoryFile.role)
             .join(
                 Chunk,
                 Chunk.file_id == RepositoryFile.id,
             )
-            .where(
-                Chunk.id == chunk_id,
-            )
+            .where(Chunk.id.in_(chunk_ids))
         )
-
-        return self._db.scalar(stmt)
+        roles_by_chunk = dict(self._db.execute(stmt).all())
+        return [
+            result
+            for result in results
+            if roles_by_chunk.get(result.chunk_id) not in excluded_roles
+        ]

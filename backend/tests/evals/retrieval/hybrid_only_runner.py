@@ -1,24 +1,20 @@
-from tests.evals.retrieval.paths import normalize_path
-from sqlalchemy.orm import Session
-
 from app.schemas.retrieval import RetrievalRequest
 from app.services.retrieval.filters import RetrievalFilters
 from app.services.retrieval.retrieval_service import RetrievalService
+from sqlalchemy.orm import Session
 
 from tests.evals.retrieval.models import (
     RetrievalEvalCase,
     RetrievalEvalResult,
 )
+from tests.evals.retrieval.paths import normalize_path
 
 
 class HybridOnlyRetrievalEvalRunner:
     """Evaluate the hybrid baseline without graph expansion or fusion."""
 
     def __init__(self, db: Session) -> None:
-        self._service = RetrievalService(
-            db,
-            conditional_rerank_threshold=0.001,
-        )
+        self._service = RetrievalService(db)
 
     def run_case(
         self,
@@ -33,12 +29,13 @@ class HybridOnlyRetrievalEvalRunner:
             filters=filters,
         )
 
-        response = self._service.retrieve(request)
+        results = self._service.retrieve_hybrid_rrf(request)
 
         retrieved_paths = tuple(
             normalize_path(result.file_path)
-            for result in response.results
+            for result in results
         )
+
         expected_paths = tuple(
             normalize_path(path)
             for path in case.expected_file_paths

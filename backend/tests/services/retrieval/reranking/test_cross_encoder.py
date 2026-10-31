@@ -78,10 +78,18 @@ def test_reranker_ignores_candidates_without_documents():
     assert reranked[0].chunk_id == 1
 
     reranker._model.predict.assert_called_once_with(
-        [
-            ("test query", "available document"),
-        ]
-    )
+    [
+        ("test query", "available document"),
+    ],
+    batch_size=16,
+    show_progress_bar=False,
+    processing_kwargs={
+        "text": {
+            "max_length": 256,
+            "truncation": True,
+        }
+    },
+)
 
 
 def test_reranker_returns_empty_for_invalid_input():
