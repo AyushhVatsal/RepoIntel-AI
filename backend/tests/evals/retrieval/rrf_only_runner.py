@@ -28,7 +28,7 @@ class RRFOnlyRetrievalEvalRunner:
         self._hybrid = HybridRetriever(
             vector_retriever=VectorRetriever(db),
             lexical_retriever=LexicalRetriever(db, BM25IndexManager()),
-            fusion=RRFFusion(),
+            fusion=RRFFusion(source_weights=(0.8, 0.2)),
             candidate_filter=RetrievalCandidateFilter(db),
         )
         self._hydrator = RetrievalResultHydrator(db)
@@ -38,7 +38,10 @@ class RRFOnlyRetrievalEvalRunner:
         case: RetrievalEvalCase,
         k: int = 5,
         filters: RetrievalFilters | None = None,
+        candidate_pool_k: int | None = None,
     ) -> RetrievalEvalResult:
+        if candidate_pool_k is not None and candidate_pool_k < k:
+            raise ValueError("candidate_pool_k must be at least k")
         query_vector = self._embedding_service.embed_query(case.query)
         fused = self._hybrid.search(
             query_vector=query_vector,
@@ -47,6 +50,7 @@ class RRFOnlyRetrievalEvalRunner:
             query=case.query,
             top_k=k,
             filters=filters,
+            candidate_k=candidate_pool_k,
         )
         hydrated = self._hydrator.hydrate(fused)
         retrieved = tuple(normalize_path(result.file_path) for result in hydrated)
@@ -74,5 +78,14 @@ class RRFOnlyRetrievalEvalRunner:
         cases: list[RetrievalEvalCase],
         k: int = 5,
         filters: RetrievalFilters | None = None,
+        candidate_pool_k: int | None = None,
     ) -> list[RetrievalEvalResult]:
-        return [self.run_case(case, k=k, filters=filters) for case in cases]
+        return [
+            self.run_case(
+                case,
+                k=k,
+                filters=filters,
+                candidate_pool_k=candidate_pool_k,
+            )
+            for case in cases
+        ]

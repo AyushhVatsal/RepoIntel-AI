@@ -7,9 +7,7 @@ from app.services.retrieval.result import RetrievalResult
 
 
 def test_reranker_sorts_by_cross_encoder_score():
-    reranker = CrossEncoderReranker.__new__(
-        CrossEncoderReranker
-    )
+    reranker = CrossEncoderReranker.__new__(CrossEncoderReranker)
 
     reranker._model = Mock()
     reranker._model.predict.return_value = [
@@ -51,9 +49,7 @@ def test_reranker_sorts_by_cross_encoder_score():
 
 
 def test_reranker_ignores_candidates_without_documents():
-    reranker = CrossEncoderReranker.__new__(
-        CrossEncoderReranker
-    )
+    reranker = CrossEncoderReranker.__new__(CrossEncoderReranker)
 
     reranker._model = Mock()
     reranker._model.predict.return_value = [0.80]
@@ -78,41 +74,45 @@ def test_reranker_ignores_candidates_without_documents():
     assert reranked[0].chunk_id == 1
 
     reranker._model.predict.assert_called_once_with(
-    [
-        ("test query", "available document"),
-    ],
-    batch_size=16,
-    show_progress_bar=False,
-    processing_kwargs={
-        "text": {
-            "max_length": 256,
-            "truncation": True,
-        }
-    },
-)
+        [
+            ("test query", "available document"),
+        ],
+        batch_size=16,
+        show_progress_bar=False,
+        processing_kwargs={
+            "text": {
+                "max_length": 256,
+                "truncation": True,
+            }
+        },
+    )
 
 
 def test_reranker_returns_empty_for_invalid_input():
-    reranker = CrossEncoderReranker.__new__(
-        CrossEncoderReranker
-    )
+    reranker = CrossEncoderReranker.__new__(CrossEncoderReranker)
 
     reranker._model = Mock()
 
-    assert reranker.rerank(
-        query="test",
-        results=[],
-        documents={},
-        top_k=5,
-    ) == []
+    assert (
+        reranker.rerank(
+            query="test",
+            results=[],
+            documents={},
+            top_k=5,
+        )
+        == []
+    )
 
-    assert reranker.rerank(
-        query="test",
-        results=[
-            RetrievalResult(chunk_id=1, score=0.1),
-        ],
-        documents={1: "document"},
-        top_k=0,
-    ) == []
+    assert (
+        reranker.rerank(
+            query="test",
+            results=[
+                RetrievalResult(chunk_id=1, score=0.1),
+            ],
+            documents={1: "document"},
+            top_k=0,
+        )
+        == []
+    )
 
     reranker._model.predict.assert_not_called()

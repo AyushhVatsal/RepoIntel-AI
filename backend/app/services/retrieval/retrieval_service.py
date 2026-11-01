@@ -5,10 +5,10 @@ from time import perf_counter
 
 from sqlalchemy.orm import Session
 
-from app.crud.chunk import chunk_crud
 from app.schemas.retrieval import (
     RetrievalRequest,
     RetrievalResponse,
+    RetrievedChunk,
 )
 from app.services.embedding.models.embedding_config import EmbeddingConfig
 from app.services.embedding.providers.local import (
@@ -52,6 +52,11 @@ _BATCHING_QUERY_RE = re.compile(
     r"\b(?:batch(?:ed|ing)?|batcher)\b",
     re.IGNORECASE,
 )
+_LEXICAL_NAVIGATION_QUERY_RE = re.compile(
+    r"\b(?:alembic|migrations?|file\s+paths?|filenames?|source\s+paths?)\b|"
+    r"\b[a-zA-Z0-9_.-]+/[a-zA-Z0-9_./-]+\b",
+    re.IGNORECASE,
+)
 
 
 def _is_definition_query(query: str) -> bool:
@@ -64,6 +69,10 @@ def _is_configuration_query(query: str) -> bool:
 
 def _is_batching_query(query: str) -> bool:
     return bool(_BATCHING_QUERY_RE.search(query))
+
+
+def _is_lexical_navigation_query(query: str) -> bool:
+    return bool(_LEXICAL_NAVIGATION_QUERY_RE.search(query))
 
 
 @lru_cache(maxsize=1)
@@ -79,8 +88,9 @@ class RetrievalService:
         self,
         db: Session,
         *,
-        conditional_rerank_threshold: float | None = 0.001,
-        candidate_pool_k: int = 5,
+        conditional_rerank_threshold: float | None = 0.0005,
+        candidate_pool_k: int = 10,
+        rerank_candidate_pool_k: int = 5,
         rrf_weight: float = 0.90,
         cross_encoder_weight: float = 0.10,
     ) -> None:
@@ -91,10 +101,13 @@ class RetrievalService:
             raise ValueError("conditional_rerank_threshold must be non-negative")
         if candidate_pool_k < 1:
             raise ValueError("candidate_pool_k must be at least 1")
+        if rerank_candidate_pool_k < 1:
+            raise ValueError("rerank_candidate_pool_k must be at least 1")
 
         self._db = db
         self._conditional_rerank_threshold = conditional_rerank_threshold
         self._candidate_pool_k = candidate_pool_k
+        self._rerank_candidate_pool_k = rerank_candidate_pool_k
 
         config = EmbeddingConfig()
         provider = get_local_embedding_provider(config.model)
@@ -114,7 +127,7 @@ class RetrievalService:
         self._hybrid_retriever = HybridRetriever(
             vector_retriever=vector_retriever,
             lexical_retriever=lexical_retriever,
-            fusion=RRFFusion(),
+            fusion=RRFFusion(source_weights=(0.8, 0.2)),
             candidate_filter=RetrievalCandidateFilter(db),
         )
 
@@ -127,11 +140,37 @@ class RetrievalService:
             cross_encoder_weight=cross_encoder_weight,
         )
         self._configuration_fusion = WeightedFusion(
-            rrf_weight=0.0,
-            cross_encoder_weight=1.0,
+            rrf_weight=0.9,
+            cross_encoder_weight=0.1,
         )
 
         self._hydrator = RetrievalResultHydrator(db)
+
+    @staticmethod
+    def _limit_file_repetition(
+        results: list[RetrievedChunk],
+        *,
+        top_k: int,
+        max_per_file: int = 1,
+    ) -> list[RetrievedChunk]:
+        """Prefer distinct files, backfilling only when needed to fill top-k."""
+        selected: list[RetrievedChunk] = []
+        deferred: list[RetrievedChunk] = []
+        file_counts: dict[str, int] = {}
+
+        for result in results:
+            file_key = result.file_path.replace("\\", "/").casefold()
+            if file_counts.get(file_key, 0) >= max_per_file:
+                deferred.append(result)
+                continue
+
+            selected.append(result)
+            file_counts[file_key] = file_counts.get(file_key, 0) + 1
+
+        if len(selected) < top_k:
+            selected.extend(deferred[: top_k - len(selected)])
+
+        return selected[:top_k]
 
     def retrieve_hybrid_rrf(
         self,
@@ -145,9 +184,11 @@ class RetrievalService:
 
         definition_question = _is_definition_query(request.query)
         configuration_question = _is_configuration_query(request.query)
+        lexical_navigation_question = _is_lexical_navigation_query(request.query)
         targeted_question = (
             definition_question
             or configuration_question
+            or lexical_navigation_question
             or _is_batching_query(request.query)
         )
 
@@ -186,9 +227,11 @@ class RetrievalService:
 
         definition_question = _is_definition_query(request.query)
         configuration_question = _is_configuration_query(request.query)
+        lexical_navigation_question = _is_lexical_navigation_query(request.query)
         targeted_question = (
             definition_question
             or configuration_question
+            or lexical_navigation_question
             or _is_batching_query(request.query)
         )
 
@@ -201,6 +244,10 @@ class RetrievalService:
             self._candidate_pool_k,
             10 if targeted_question else 0,
         )
+        if lexical_navigation_question:
+            # Keep narrow lexical lookups stable; extra ranks can otherwise
+            # dilute exact file evidence in the primary RRF positions.
+            candidate_k = request.top_k
         rrf_results = self._hybrid_retriever.search(
             query_vector=query_vector,
             repository_id=request.repository_id,
@@ -209,6 +256,7 @@ class RetrievalService:
             top_k=request.top_k,
             filters=request.filters,
             candidate_k=candidate_k,
+            preserve_top_k_order=True,
         )
         hybrid_search_ms = (perf_counter() - stage_start) * 1000
 
@@ -254,25 +302,40 @@ class RetrievalService:
             )
 
         # Preserve the existing conditional reranking behavior.
-        should_skip_reranking = definition_question or (
-            not configuration_question
-            and self._conditional_rerank_threshold is not None
-            and (
-                len(rrf_results) < 2
-                or (
-                    rrf_results[0].score - rrf_results[1].score
-                    >= self._conditional_rerank_threshold
+        should_skip_reranking = (
+            definition_question
+            or lexical_navigation_question
+            or (
+                not configuration_question
+                and self._conditional_rerank_threshold is not None
+                and (
+                    len(rrf_results) < 2
+                    or (
+                        rrf_results[0].score - rrf_results[1].score
+                        >= self._conditional_rerank_threshold
+                    )
                 )
             )
         )
 
-        candidate_fetch_ms = 0.0
+        # Hydrate the wider RRF pool once. The same rows supply both the
+        # cross-encoder text and final response fields, avoiding a second DB
+        # round trip later in the request.
+        candidate_fetch_start = perf_counter()
+        hydrated_by_id = {
+            chunk.chunk_id: chunk for chunk in self._hydrator.hydrate(rrf_results)
+        }
+        candidate_fetch_ms = (perf_counter() - candidate_fetch_start) * 1000
         cross_encoder_ms = 0.0
         weighted_fusion_ms = 0.0
         reranking_skip_reason = (
             "definition_lookup_uses_hybrid_order"
             if definition_question
-            else ("rrf_margin_exceeded" if should_skip_reranking else None)
+            else (
+                "lexical_navigation_uses_hybrid_order"
+                if lexical_navigation_question
+                else ("rrf_margin_exceeded" if should_skip_reranking else None)
+            )
         )
         ranking_policy = (
             "hybrid_rrf"
@@ -290,16 +353,23 @@ class RetrievalService:
             # Stage 3: Fetch candidate content for reranking.
             rerank_candidate_count = min(
                 len(rrf_results),
-                max(request.top_k, self._candidate_pool_k),
+                max(request.top_k, self._rerank_candidate_pool_k),
             )
-            rerank_candidates = rrf_results[:rerank_candidate_count]
-            stage_start = perf_counter()
-            chunks = chunk_crud.get_by_ids(
-                self._db,
-                [result.chunk_id for result in rerank_candidates],
+            diverse_rerank_chunks = self._limit_file_repetition(
+                [
+                    hydrated_by_id[result.chunk_id]
+                    for result in rrf_results
+                    if result.chunk_id in hydrated_by_id
+                ],
+                top_k=rerank_candidate_count,
             )
-            documents = {chunk.id: chunk.content for chunk in chunks}
-            candidate_fetch_ms = (perf_counter() - stage_start) * 1000
+            rerank_ids = {chunk.chunk_id for chunk in diverse_rerank_chunks}
+            rerank_candidates = [
+                result for result in rrf_results if result.chunk_id in rerank_ids
+            ]
+            documents = {
+                chunk.chunk_id: chunk.content for chunk in diverse_rerank_chunks
+            }
 
             # Stage 4: Cross-encoder reranking.
             stage_start = perf_counter()
@@ -321,15 +391,40 @@ class RetrievalService:
                 else self._weighted_fusion
             )
             final_results = fusion.fuse(
-                rrf_results=rrf_results,
+                # Every candidate entering score fusion has a CE score. The
+                # wider pool is used for coverage and file diversity, while
+                # the bounded rerank pool remains the actual ranked set.
+                rrf_results=rerank_candidates,
                 cross_encoder_results=cross_encoder_results,
-                top_k=candidate_k,
+                top_k=max(request.top_k, self._rerank_candidate_pool_k),
             )
             weighted_fusion_ms = (perf_counter() - stage_start) * 1000
 
         # Stage 6: Hydrate final retrieval results.
         stage_start = perf_counter()
-        hydrated_results = self._hydrator.hydrate(final_results)
+        hydrated_candidates = []
+        for result in final_results[:candidate_k]:
+            chunk = hydrated_by_id.get(result.chunk_id)
+            if chunk is None:
+                continue
+            hydrated_candidates.append(
+                chunk.model_copy(
+                    update={
+                        "similarity_score": result.dense_score,
+                        "hybrid_score": result.hybrid_score,
+                        "cross_encoder_score": result.cross_encoder_score,
+                        "retrieval_score": (
+                            result.retrieval_score
+                            if result.retrieval_score is not None
+                            else result.score
+                        ),
+                    }
+                )
+            )
+        hydrated_results = self._limit_file_repetition(
+            hydrated_candidates,
+            top_k=request.top_k,
+        )
         hydration_ms = (perf_counter() - stage_start) * 1000
 
         total_ms = (perf_counter() - total_start) * 1000

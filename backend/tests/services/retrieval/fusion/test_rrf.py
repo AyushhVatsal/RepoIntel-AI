@@ -53,6 +53,34 @@ def test_rrf_combines_scores_for_documents_present_in_multiple_lists():
     assert results[0].score == (1 / 61) + (1 / 61)
 
 
+def test_rrf_applies_source_weights_to_rank_contributions():
+    fusion = RRFFusion(k=60, source_weights=(0.8, 0.2))
+
+    results = fusion.fuse(
+        [
+            [
+                RetrievalResult(chunk_id=1, score=0.9),
+                RetrievalResult(chunk_id=2, score=0.8),
+            ],
+            [
+                RetrievalResult(chunk_id=2, score=4.0),
+                RetrievalResult(chunk_id=3, score=3.0),
+            ],
+        ],
+        top_k=3,
+    )
+
+    assert [result.chunk_id for result in results] == [2, 1, 3]
+    assert results[0].score == (0.8 / 62) + (0.2 / 61)
+
+
+def test_rrf_source_weights_must_match_result_lists():
+    fusion = RRFFusion(source_weights=(0.8, 0.2))
+
+    with raises(ValueError, match="must match"):
+        fusion.fuse([[RetrievalResult(chunk_id=1, score=1.0)]], top_k=1)
+
+
 def test_rrf_respects_top_k():
     fusion = RRFFusion()
 

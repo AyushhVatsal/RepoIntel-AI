@@ -5,8 +5,8 @@ from app.db.database import SessionLocal
 from app.models.repository_file import FileRole
 from app.services.retrieval.filters import RetrievalFilters
 from tests.evals.retrieval.aggregator import aggregate_results
-from tests.evals.retrieval.rrf_only_runner import (
-    RRFOnlyRetrievalEvalRunner,
+from tests.evals.retrieval.hybrid_only_runner import (
+    HybridOnlyRetrievalEvalRunner,
 )
 from tests.evals.retrieval.loader import load_retrieval_eval_cases
 
@@ -18,7 +18,7 @@ def test_run_hybrid_only_retrieval_evaluation() -> None:
     db = SessionLocal()
 
     try:
-        runner = RRFOnlyRetrievalEvalRunner(db)
+        runner = HybridOnlyRetrievalEvalRunner(db)
         results = runner.run(
             cases=cases,
             k=5,

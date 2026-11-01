@@ -1,4 +1,3 @@
-from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -8,12 +7,12 @@ from app.schemas.retrieval import (
     RetrievalResponse,
     RetrievedChunk,
 )
-from app.services.retrieval import retrieval_service as service_module
 from app.services.retrieval.result import RetrievalResult
 from app.services.retrieval.retrieval_service import (
     RetrievalService,
     _is_batching_query,
     _is_configuration_query,
+    _is_lexical_navigation_query,
 )
 
 
@@ -26,7 +25,8 @@ def make_service(
     service = RetrievalService.__new__(RetrievalService)
     service._db = Mock()
     service._conditional_rerank_threshold = threshold
-    service._candidate_pool_k = 20
+    service._candidate_pool_k = 10
+    service._rerank_candidate_pool_k = 5
 
     service._embedding_service = Mock()
     service._embedding_service.embed_query.return_value = [0.1] * 384
@@ -71,19 +71,6 @@ def make_service(
 
     service._hydrator.hydrate.side_effect = hydrate
 
-    monkeypatch.setattr(
-        service_module,
-        "chunk_crud",
-        Mock(
-            get_by_ids=Mock(
-                return_value=[
-                    SimpleNamespace(id=1, content="first document"),
-                    SimpleNamespace(id=2, content="second document"),
-                ]
-            )
-        ),
-    )
-
     return service, rrf_results
 
 
@@ -98,6 +85,12 @@ def test_batching_question_is_targeted_without_being_config_question() -> None:
 
     assert _is_batching_query(query)
     assert not _is_configuration_query(query)
+
+
+def test_alembic_migration_navigation_query_uses_lexical_ranking() -> None:
+    assert _is_lexical_navigation_query(
+        "Alembic migration adding the vector similarity index"
+    )
 
 
 def test_retrieval_service_defaults_to_always_rerank(
@@ -123,7 +116,7 @@ def test_retrieval_service_defaults_to_always_rerank(
     service._weighted_fusion.fuse.assert_called_once_with(
         rrf_results=rrf_results,
         cross_encoder_results=service._cross_encoder.rerank.return_value,
-        top_k=20,
+        top_k=5,
     )
 
 
@@ -153,7 +146,7 @@ def test_retrieval_service_skips_reranking_when_score_gap_is_large(
     service._cross_encoder.rerank.assert_not_called()
     service._weighted_fusion.fuse.assert_not_called()
     service._hydrator.hydrate.assert_called_once_with(
-        service._hybrid_retriever.search.return_value[:5]
+        service._hybrid_retriever.search.return_value
     )
 
 
@@ -180,7 +173,7 @@ def test_retrieval_service_reranks_when_score_gap_is_small(
     service._weighted_fusion.fuse.assert_called_once_with(
         rrf_results=rrf_results,
         cross_encoder_results=service._cross_encoder.rerank.return_value,
-        top_k=20,
+        top_k=5,
     )
 
 
@@ -197,7 +190,7 @@ def test_configuration_query_uses_targeted_candidates_and_cross_encoder_order(
         )
     )
 
-    assert service._hybrid_retriever.search.call_args.kwargs["candidate_k"] == 20
+    assert service._hybrid_retriever.search.call_args.kwargs["candidate_k"] == 10
     service._configuration_fusion.fuse.assert_called_once()
     service._weighted_fusion.fuse.assert_not_called()
 
@@ -221,7 +214,7 @@ def test_decisive_batching_query_keeps_rrf_order_without_reranking(
 
     assert not response.reranking_applied
     assert response.reranking_skip_reason == "rrf_margin_exceeded"
-    assert service._hybrid_retriever.search.call_args.kwargs["candidate_k"] == 20
+    assert service._hybrid_retriever.search.call_args.kwargs["candidate_k"] == 10
     service._cross_encoder.rerank.assert_not_called()
 
 
@@ -238,19 +231,6 @@ def test_configuration_reranking_is_capped_at_candidate_pool_size(
         RetrievalResult(chunk_id=chunk_id, score=1.0 - chunk_id / 100)
         for chunk_id in range(1, 6)
     ]
-    monkeypatch.setattr(
-        service_module,
-        "chunk_crud",
-        Mock(
-            get_by_ids=Mock(
-                return_value=[
-                    SimpleNamespace(id=chunk_id, content=f"document {chunk_id}")
-                    for chunk_id in range(1, 6)
-                ]
-            )
-        ),
-    )
-
     service.retrieve(
         RetrievalRequest(
             repository_id=7,
@@ -262,6 +242,91 @@ def test_configuration_reranking_is_capped_at_candidate_pool_size(
     rerank_call = service._cross_encoder.rerank.call_args.kwargs
     assert len(rerank_call["results"]) == 5
     assert rerank_call["top_k"] == 5
+
+
+def test_reranking_pool_prefers_distinct_files_from_wider_candidate_pool(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service, _rrf_results = make_service(monkeypatch, threshold=None)
+    service._hybrid_retriever.search.return_value = [
+        RetrievalResult(chunk_id=chunk_id, score=0.03 - chunk_id / 10000)
+        for chunk_id in range(1, 11)
+    ]
+    service._hydrator.hydrate.side_effect = lambda results: [
+        RetrievedChunk(
+            chunk_id=result.chunk_id,
+            content=f"content {result.chunk_id}",
+            file_path=(
+                "src/repeated.py"
+                if result.chunk_id in (1, 2, 3)
+                else f"src/file_{result.chunk_id}.py"
+            ),
+        )
+        for result in results
+    ]
+
+    service.retrieve(
+        RetrievalRequest(
+            repository_id=7,
+            query="How does indexing work?",
+            top_k=5,
+        )
+    )
+
+    rerank_call = service._cross_encoder.rerank.call_args.kwargs
+    assert [result.chunk_id for result in rerank_call["results"]] == [1, 4, 5, 6, 7]
+    assert set(rerank_call["documents"]) == {1, 4, 5, 6, 7}
+
+
+def test_configuration_response_respects_requested_top_k(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service, _rrf_results = make_service(monkeypatch, threshold=0.001)
+    service._candidate_pool_k = 5
+    service._hybrid_retriever.search.return_value = [
+        RetrievalResult(chunk_id=chunk_id, score=0.02 - chunk_id / 10000)
+        for chunk_id in range(1, 11)
+    ]
+    service._configuration_fusion.fuse.return_value = [
+        RetrievalResult(chunk_id=chunk_id, score=1.0 - chunk_id / 100)
+        for chunk_id in range(1, 11)
+    ]
+    response = service.retrieve(
+        RetrievalRequest(
+            repository_id=7,
+            query="Where are embedding dimensions configured?",
+            top_k=1,
+        )
+    )
+
+    assert len(response.results) == 1
+    service._hydrator.hydrate.assert_called_once_with(
+        service._hybrid_retriever.search.return_value
+    )
+
+
+def test_file_diversity_promotes_other_files_before_repeating_a_file() -> None:
+    chunks = [
+        RetrievedChunk(chunk_id=1, content="a1", file_path="src/a.py"),
+        RetrievedChunk(chunk_id=2, content="a2", file_path="src/a.py"),
+        RetrievedChunk(chunk_id=3, content="b1", file_path="src/b.py"),
+        RetrievedChunk(chunk_id=4, content="c1", file_path="src/c.py"),
+    ]
+
+    selected = RetrievalService._limit_file_repetition(chunks, top_k=3)
+
+    assert [chunk.chunk_id for chunk in selected] == [1, 3, 4]
+
+
+def test_file_diversity_backfills_when_candidate_files_are_insufficient() -> None:
+    chunks = [
+        RetrievedChunk(chunk_id=1, content="a1", file_path="src/a.py"),
+        RetrievedChunk(chunk_id=2, content="a2", file_path="src/a.py"),
+    ]
+
+    selected = RetrievalService._limit_file_repetition(chunks, top_k=2)
+
+    assert [chunk.chunk_id for chunk in selected] == [1, 2]
 
 
 def test_file_definition_query_preserves_hybrid_order_without_reranking(
@@ -280,3 +345,21 @@ def test_file_definition_query_preserves_hybrid_order_without_reranking(
     assert not response.reranking_applied
     assert response.reranking_skip_reason == "definition_lookup_uses_hybrid_order"
     service._cross_encoder.rerank.assert_not_called()
+
+
+def test_migration_navigation_query_skips_cross_encoder(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service, _rrf_results = make_service(monkeypatch, threshold=None)
+
+    response = service.retrieve(
+        RetrievalRequest(
+            repository_id=7,
+            query="Alembic migration adding the vector similarity index",
+            top_k=5,
+        )
+    )
+
+    assert response.reranking_skip_reason == "lexical_navigation_uses_hybrid_order"
+    service._cross_encoder.rerank.assert_not_called()
+    assert service._hybrid_retriever.search.call_args.kwargs["candidate_k"] == 5

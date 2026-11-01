@@ -75,7 +75,7 @@ def test_run_v22_retrieval_evaluation() -> None:
         db.close()
 
     assert len(results) == len(cases)
-    # Keep the cross-encoder path at or above its pre-fix frozen baseline.
+    # Keep the production conditional-reranking path at its frozen baseline.
     assert summary.hit_rate_at_5 >= 1.0
     assert summary.recall_at_5 >= 0.916
     assert summary.mrr_at_5 >= 0.691

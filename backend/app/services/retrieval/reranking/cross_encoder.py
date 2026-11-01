@@ -23,19 +23,12 @@ class CrossEncoderReranker:
         if top_k <= 0 or not results:
             return []
 
-        candidates = [
-            result
-            for result in results
-            if result.chunk_id in documents
-        ]
+        candidates = [result for result in results if result.chunk_id in documents]
 
         if not candidates:
             return []
 
-        pairs = [
-            (query, documents[result.chunk_id])
-            for result in candidates
-        ]
+        pairs = [(query, documents[result.chunk_id]) for result in candidates]
 
         scores = self._model.predict(
             pairs,
@@ -43,7 +36,7 @@ class CrossEncoderReranker:
             show_progress_bar=False,
             processing_kwargs={
                 "text": {
-                    "max_length": 512,
+                    "max_length": 256,
                     "truncation": True,
                 }
             },

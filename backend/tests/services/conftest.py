@@ -24,6 +24,7 @@ from app.models.repository_file import (
     RepositoryFile,
 )
 from app.models.user import User
+from app.services.retrieval.lexical.manager import get_bm25_index_manager
 
 
 @pytest.fixture
@@ -302,10 +303,22 @@ def retrieval_dataset(db):
     db.add_all(embeddings)
     db.commit()
 
-    return {
-        "repository_id": repository.id,
-        "other_repository_id": other_repository.id,
-        "chunks": chunks,
-        "other_chunk": other_chunk,
-        "query_vector": query_vector,
-    }
+    repository_ids = (repository.id, other_repository.id)
+    try:
+        yield {
+            "repository_id": repository.id,
+            "other_repository_id": other_repository.id,
+            "chunks": chunks,
+            "other_chunk": other_chunk,
+            "query_vector": query_vector,
+        }
+    finally:
+        db.rollback()
+        manager = get_bm25_index_manager()
+        for repository_id in repository_ids:
+            manager.invalidate(repository_id)
+
+        test_user = db.get(User, user.id)
+        if test_user is not None:
+            db.delete(test_user)
+            db.commit()

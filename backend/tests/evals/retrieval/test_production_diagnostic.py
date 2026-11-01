@@ -43,7 +43,7 @@ def test_production_diagnostic() -> None:
             BM25IndexManager(),
         )
 
-        fusion = RRFFusion()
+        fusion = RRFFusion(source_weights=(0.8, 0.2))
         hydrator = RetrievalResultHydrator(db)
 
         evaluation_results: list[RetrievalEvalResult] = []

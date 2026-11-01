@@ -105,6 +105,15 @@ def test_v22_conditional_reranking() -> None:
                 f"{median(r['recall'] for r in runs):9.4f}"
             )
 
+        conditional_runs = measurements[0.001]
+        always_runs = measurements[None]
+        assert median(r["rerank_rate"] for r in conditional_runs) < median(
+            r["rerank_rate"] for r in always_runs
+        ), "conditional reranking should reduce cross-encoder calls"
+        assert median(r["latency_ms"] for r in conditional_runs) < median(
+            r["latency_ms"] for r in always_runs
+        ), "conditional reranking should be faster than always reranking"
+
         assert len(cases) > 0
 
     finally:

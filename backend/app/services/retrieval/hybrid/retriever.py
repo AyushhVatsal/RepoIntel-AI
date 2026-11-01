@@ -32,17 +32,14 @@ class HybridRetriever:
         top_k: int,
         filters: RetrievalFilters | None = None,
         candidate_k: int | None = None,
+        preserve_top_k_order: bool = False,
     ) -> list[RetrievalResult]:
         """Run dense and lexical retrieval, filter candidates, then fuse."""
 
         if top_k <= 0:
             return []
 
-        retrieval_k = (
-            max(candidate_k, top_k)
-            if candidate_k is not None
-            else top_k
-        )
+        retrieval_k = max(candidate_k, top_k) if candidate_k is not None else top_k
 
         # Use the caller's candidate budget to bound dense and lexical work.
         dense_candidate_k = retrieval_k
@@ -103,6 +100,23 @@ class HybridRetriever:
         ]
 
         # 3. Fuse dense and lexical results using RRF.
+        if preserve_top_k_order and candidate_k is not None and retrieval_k > top_k:
+            primary = self.fusion.fuse(
+                [dense_results[:top_k], lexical_results[:top_k]],
+                top_k=top_k,
+            )
+            expanded = self.fusion.fuse(
+                [dense_results, lexical_results],
+                top_k=retrieval_k,
+            )
+            primary_ids = {result.chunk_id for result in primary}
+            return (
+                primary
+                + [result for result in expanded if result.chunk_id not in primary_ids][
+                    : retrieval_k - len(primary)
+                ]
+            )
+
         fuse_top_k = retrieval_k if candidate_k is not None else top_k
         return self.fusion.fuse(
             [dense_results, lexical_results],

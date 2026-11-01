@@ -1,14 +1,33 @@
+from math import isfinite
+
 from app.services.retrieval.result import RetrievalResult
 
 
 class RRFFusion:
     """Fuse ranked retrieval results using Reciprocal Rank Fusion."""
 
-    def __init__(self, k: int = 60) -> None:
+    def __init__(
+        self,
+        k: int = 60,
+        source_weights: tuple[float, ...] | None = None,
+    ) -> None:
         if k <= 0:
             raise ValueError("k must be greater than 0")
+        if source_weights is not None and (
+            not source_weights
+            or any(not isfinite(weight) or weight < 0 for weight in source_weights)
+            or sum(source_weights) <= 0
+        ):
+            raise ValueError("source_weights must be non-negative with a positive sum")
 
         self.k = k
+        if source_weights is None:
+            self.source_weights = None
+        else:
+            total_weight = sum(source_weights)
+            self.source_weights = tuple(
+                weight / total_weight for weight in source_weights
+            )
 
     def fuse(
         self,
@@ -19,21 +38,29 @@ class RRFFusion:
 
         if top_k <= 0:
             return []
+        if self.source_weights is not None and len(self.source_weights) != len(
+            result_lists
+        ):
+            raise ValueError("source_weights must match the number of result lists")
 
         scores: dict[int, float] = {}
         dense_scores: dict[int, float | None] = {}
 
-        for results in result_lists:
+        for source_index, results in enumerate(result_lists):
+            source_weight = (
+                self.source_weights[source_index]
+                if self.source_weights is not None
+                else 1.0
+            )
             seen_in_list: set[int] = set()
             for rank, result in enumerate(results, start=1):
                 if result.chunk_id in seen_in_list:
                     continue
                 seen_in_list.add(result.chunk_id)
 
-                scores[result.chunk_id] = (
-                    scores.get(result.chunk_id, 0.0)
-                    + 1.0 / (self.k + rank)
-                )
+                scores[result.chunk_id] = scores.get(
+                    result.chunk_id, 0.0
+                ) + source_weight / (self.k + rank)
 
                 # Preserve the dense cosine similarity if this
                 # result came from dense retrieval.
@@ -49,12 +76,12 @@ class RRFFusion:
         )
 
         return [
-        RetrievalResult(
-            chunk_id=chunk_id,
-            score=rrf_score,
-            dense_score=dense_scores[chunk_id],
-            retrieval_score=rrf_score,
-            hybrid_score=rrf_score,
-        )
-        for chunk_id, rrf_score in ranked_results[:top_k]
-    ]
+            RetrievalResult(
+                chunk_id=chunk_id,
+                score=rrf_score,
+                dense_score=dense_scores[chunk_id],
+                retrieval_score=rrf_score,
+                hybrid_score=rrf_score,
+            )
+            for chunk_id, rrf_score in ranked_results[:top_k]
+        ]

@@ -47,7 +47,7 @@ class V22FusionRetrievalEvalRunner:
         self._hybrid_retriever = HybridRetriever(
             vector_retriever=vector_retriever,
             lexical_retriever=lexical_retriever,
-            fusion=RRFFusion(),
+            fusion=RRFFusion(source_weights=(0.8, 0.2)),
             candidate_filter=RetrievalCandidateFilter(db),
         )
 
