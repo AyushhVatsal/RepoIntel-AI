@@ -285,7 +285,7 @@ class RetrievalService:
         )
 
         if should_skip_reranking:
-            final_results = rrf_results[: request.top_k]
+            final_results = rrf_results[:candidate_k]
         else:
             # Stage 3: Fetch candidate content for reranking.
             rerank_candidate_count = min(
@@ -321,11 +321,9 @@ class RetrievalService:
                 else self._weighted_fusion
             )
             final_results = fusion.fuse(
-                rrf_results=(
-                    rerank_candidates if configuration_question else rrf_results
-                ),
+                rrf_results=rrf_results,
                 cross_encoder_results=cross_encoder_results,
-                top_k=request.top_k,
+                top_k=candidate_k,
             )
             weighted_fusion_ms = (perf_counter() - stage_start) * 1000
 

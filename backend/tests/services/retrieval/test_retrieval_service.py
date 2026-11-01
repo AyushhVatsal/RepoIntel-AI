@@ -123,7 +123,7 @@ def test_retrieval_service_defaults_to_always_rerank(
     service._weighted_fusion.fuse.assert_called_once_with(
         rrf_results=rrf_results,
         cross_encoder_results=service._cross_encoder.rerank.return_value,
-        top_k=1,
+        top_k=20,
     )
 
 
@@ -153,7 +153,7 @@ def test_retrieval_service_skips_reranking_when_score_gap_is_large(
     service._cross_encoder.rerank.assert_not_called()
     service._weighted_fusion.fuse.assert_not_called()
     service._hydrator.hydrate.assert_called_once_with(
-        service._hybrid_retriever.search.return_value[:1]
+        service._hybrid_retriever.search.return_value[:5]
     )
 
 
@@ -180,7 +180,7 @@ def test_retrieval_service_reranks_when_score_gap_is_small(
     service._weighted_fusion.fuse.assert_called_once_with(
         rrf_results=rrf_results,
         cross_encoder_results=service._cross_encoder.rerank.return_value,
-        top_k=1,
+        top_k=20,
     )
 
 

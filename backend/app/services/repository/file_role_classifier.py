@@ -49,6 +49,7 @@ class FileRoleClassifier:
         # Conventional test filenames.
         if (
             normalized_filename.startswith("test_")
+            or normalized_filename.startswith("smoke_test")
             or normalized_filename.endswith("_test.py")
             or ".test." in normalized_filename
             or ".spec." in normalized_filename

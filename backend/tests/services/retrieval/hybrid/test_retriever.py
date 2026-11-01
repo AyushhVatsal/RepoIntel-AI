@@ -43,13 +43,7 @@ def test_hybrid_retriever_fuses_dense_and_lexical_results():
 
     candidate_filter = Mock()
 
-    candidate_filter.exclude_roles.return_value = [
-        RetrievalResult(
-            chunk_id=1,
-            score=0.92,
-            dense_score=0.92,
-        ),
-    ]
+    candidate_filter.exclude_roles.side_effect = lambda results, roles: results
 
     hybrid = HybridRetriever(
         vector_retriever=vector_retriever,
@@ -144,11 +138,13 @@ def test_hybrid_retriever_excludes_both_test_and_fixture_roles():
         top_k=5,
     )
 
-    passed_filters = lexical_retriever.search.call_args.kwargs["filters"]
+    passed_filters = vector_retriever.search.call_args.kwargs["filters"]
     excluded_roles = passed_filters.exclude_roles
 
     assert FileRole.TEST in excluded_roles
     assert FileRole.FIXTURE in excluded_roles
+
+    assert lexical_retriever.search.call_args.kwargs["filters"] == passed_filters
 
 
 def test_hybrid_retriever_adds_fixture_when_test_already_excluded():

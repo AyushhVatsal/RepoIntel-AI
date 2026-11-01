@@ -16,6 +16,18 @@ def test_classifies_test_file() -> None:
     assert role == FileRole.TEST
 
 
+def test_classifies_smoke_test_script() -> None:
+    classifier = FileRoleClassifier()
+
+    role = classifier.classify(
+        relative_path="backend/smoke_test_knowledge_graph.py",
+        filename="smoke_test_knowledge_graph.py",
+        category=FileCategory.SOURCE,
+    )
+
+    assert role == FileRole.TEST
+
+
 def test_classifies_fixture_file() -> None:
     classifier = FileRoleClassifier()
 
