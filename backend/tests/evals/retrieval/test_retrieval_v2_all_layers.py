@@ -1,4 +1,6 @@
+import os
 from collections.abc import Callable
+from dataclasses import replace
 from math import ceil
 from pathlib import Path
 from statistics import median
@@ -13,9 +15,6 @@ from tests.evals.retrieval.dense_runner import DenseEvalRunner
 from tests.evals.retrieval.graph_enhanced_runner import (
     GraphEnhancedRetrievalEvalRunner,
 )
-from tests.evals.retrieval.hybrid_only_runner import (
-    HybridOnlyRetrievalEvalRunner,
-)
 from tests.evals.retrieval.loader import load_retrieval_eval_cases
 from tests.evals.retrieval.rrf_only_runner import RRFOnlyRetrievalEvalRunner
 from tests.evals.retrieval.v22_fusion_runner import (
@@ -26,17 +25,22 @@ from tests.evals.retrieval.v22_runner import V22RetrievalEvalRunner
 
 def test_retrieval_v2_across_all_layers() -> None:
     directory = Path(__file__).parent
-    positive_cases = load_retrieval_eval_cases(
-        directory / "retrieval_v2.json"
-    )
+    positive_cases = load_retrieval_eval_cases(directory / "retrieval_v2.json")
     no_answer_cases = load_retrieval_eval_cases(
         directory / "retrieval_v2_no_answer.json"
     )
+    repository_id_override = os.getenv("RETRIEVAL_EVAL_REPOSITORY_ID")
+    if repository_id_override:
+        repository_id = int(repository_id_override)
+        positive_cases = [
+            replace(case, repository_id=repository_id) for case in positive_cases
+        ]
+        no_answer_cases = [
+            replace(case, repository_id=repository_id) for case in no_answer_cases
+        ]
     cases = positive_cases + no_answer_cases
     no_answer_ids = {case.id for case in no_answer_cases}
-    filters = RetrievalFilters(
-        exclude_roles=[FileRole.TEST, FileRole.FIXTURE]
-    )
+    filters = RetrievalFilters(exclude_roles=[FileRole.TEST, FileRole.FIXTURE])
 
     db = SessionLocal()
     try:
@@ -44,15 +48,16 @@ def test_retrieval_v2_across_all_layers() -> None:
             ("Dense only", DenseEvalRunner),
             ("BM25 only", BM25EvalRunner),
             ("Hybrid RRF only", RRFOnlyRetrievalEvalRunner),
-            ("Cross-encoder reranking", V22RetrievalEvalRunner),
+            ("Cross-encoder only", V22FusionRetrievalEvalRunner),
             ("Weighted RRF + cross-encoder", V22FusionRetrievalEvalRunner),
-            ("Production hybrid", HybridOnlyRetrievalEvalRunner),
+            ("Production hybrid + conditional cross-encoder", V22RetrievalEvalRunner),
             ("Graph enhanced", GraphEnhancedRetrievalEvalRunner),
         ]
 
         print(
             f"\n=== Retrieval V2: {len(positive_cases)} answerable + "
-            f"{len(no_answer_cases)} no-answer cases ==="
+            f"{len(no_answer_cases)} no-answer cases; "
+            f"repository_id={positive_cases[0].repository_id} ==="
         )
         for layer_name, runner_factory in layers:
             runner = runner_factory(db)
@@ -64,7 +69,9 @@ def test_retrieval_v2_across_all_layers() -> None:
                     result = runner.run_case(
                         case,
                         k=5,
-                        rrf_weight=0.90,
+                        rrf_weight=(
+                            0.0 if layer_name == "Cross-encoder only" else 0.90
+                        ),
                         filters=filters,
                         candidate_pool_k=5,
                     )
@@ -75,24 +82,17 @@ def test_retrieval_v2_across_all_layers() -> None:
 
             assert len(results) == len(cases), layer_name
             positive_results = [
-                result
-                for result in results
-                if result.case_id not in no_answer_ids
+                result for result in results if result.case_id not in no_answer_ids
             ]
             summary = aggregate_results(positive_results)
             no_answer_results = [
-                result
-                for result in results
-                if result.case_id in no_answer_ids
+                result for result in results if result.case_id in no_answer_ids
             ]
             false_positive_at_5 = sum(
-                bool(result.retrieved_file_paths)
-                for result in no_answer_results
+                bool(result.retrieved_file_paths) for result in no_answer_results
             ) / len(no_answer_results)
             ordered_latencies = sorted(latencies_ms)
-            p95_ms = ordered_latencies[
-                max(0, ceil(0.95 * len(ordered_latencies)) - 1)
-            ]
+            p95_ms = ordered_latencies[max(0, ceil(0.95 * len(ordered_latencies)) - 1)]
 
             print(
                 f"\n{layer_name}: Hit@1/3/5="
@@ -121,9 +121,7 @@ def test_retrieval_v2_across_all_layers() -> None:
 
             for category in sorted({result.category for result in positive_results}):
                 category_results = [
-                    result
-                    for result in positive_results
-                    if result.category == category
+                    result for result in positive_results if result.category == category
                 ]
                 category_summary = aggregate_results(category_results)
                 print(

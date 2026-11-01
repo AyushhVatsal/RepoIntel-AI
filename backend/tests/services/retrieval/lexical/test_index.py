@@ -48,6 +48,29 @@ def test_search_returns_matching_chunk():
     assert results[0].chunk_id == 1
 
 
+def test_batching_query_expansion_finds_batching_module():
+    index = BM25Index()
+    index.build(
+        [
+            LexicalDocument(
+                chunk_id=1,
+                content="batching.py sends batches of embedding requests to the provider",
+            ),
+            LexicalDocument(
+                chunk_id=2,
+                content="embedding service creates vectors from source code",
+            ),
+        ]
+    )
+
+    results = index.search(
+        query="How are chunks batched before they are sent to the embedding provider?",
+        top_k=2,
+    )
+
+    assert results[0].chunk_id == 1
+
+
 def test_exact_identifier_gets_high_lexical_score():
     index = BM25Index()
 

@@ -9,7 +9,7 @@ Compare the same positive and no-answer cases across:
 1. Dense-only retrieval
 2. BM25-only retrieval
 3. Hybrid RRF candidates without cross-encoder reranking
-4. Cross-encoder reranking of hybrid candidates
+4. Cross-encoder-only ranking of hybrid candidates
 5. Weighted RRF and cross-encoder fusion
 6. Production retrieval using the existing hybrid + conditional cross-encoder pipeline
 7. Graph-enhanced retrieval
@@ -24,4 +24,6 @@ cd backend
 .venv\Scripts\python.exe -m pytest tests/evals/retrieval/test_retrieval_v2_all_layers.py -q -s
 ```
 
-The Swagger endpoint remains a single production route and does not expose retrieval ablation modes. Use the offline runners above to compare retrieval layers; `hybrid_only_runner.py` isolates hybrid RRF and `v22_runner.py` evaluates the cross-encoder reranking path.
+The JSON cases default to repository 49. If they are being evaluated against another indexed copy of the same repository, set `RETRIEVAL_EVAL_REPOSITORY_ID` to that database ID before running; for example, `$env:RETRIEVAL_EVAL_REPOSITORY_ID = "1752"` in PowerShell. Verify that the target repository has indexed files and chunks first, since a missing corpus otherwise produces meaningless all-zero metrics.
+
+The Swagger endpoint remains a single production route and does not expose retrieval ablation modes. In the all-layer evaluation, `rrf_only_runner.py` measures hybrid RRF, `v22_fusion_runner.py` is run with RRF weight 0 for CE-only and 0.90 for weighted fusion, and `v22_runner.py` measures the production hybrid + conditional cross-encoder path. The hybrid-only service runner is not included as a separate row because it duplicates the RRF-only measurement.

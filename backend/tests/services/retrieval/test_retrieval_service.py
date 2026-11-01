@@ -1,8 +1,8 @@
-
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+
 from app.schemas.retrieval import (
     RetrievalRequest,
     RetrievalResponse,
@@ -10,7 +10,11 @@ from app.schemas.retrieval import (
 )
 from app.services.retrieval import retrieval_service as service_module
 from app.services.retrieval.result import RetrievalResult
-from app.services.retrieval.retrieval_service import RetrievalService
+from app.services.retrieval.retrieval_service import (
+    RetrievalService,
+    _is_batching_query,
+    _is_configuration_query,
+)
 
 
 def make_service(
@@ -46,6 +50,10 @@ def make_service(
     service._weighted_fusion.fuse.return_value = [
         RetrievalResult(chunk_id=2, score=0.90)
     ]
+    service._configuration_fusion = Mock()
+    service._configuration_fusion.fuse.return_value = [
+        RetrievalResult(chunk_id=2, score=0.90)
+    ]
 
     service._hydrator = Mock()
 
@@ -77,6 +85,19 @@ def make_service(
     )
 
     return service, rrf_results
+
+
+def test_configuration_question_is_targeted() -> None:
+    assert _is_configuration_query(
+        "Where are the embedding model and vector dimensions configured?"
+    )
+
+
+def test_batching_question_is_targeted_without_being_config_question() -> None:
+    query = "How are chunks batched before they are sent to the embedding provider?"
+
+    assert _is_batching_query(query)
+    assert not _is_configuration_query(query)
 
 
 def test_retrieval_service_defaults_to_always_rerank(
@@ -161,3 +182,101 @@ def test_retrieval_service_reranks_when_score_gap_is_small(
         cross_encoder_results=service._cross_encoder.rerank.return_value,
         top_k=1,
     )
+
+
+def test_configuration_query_uses_targeted_candidates_and_cross_encoder_order(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service, _rrf_results = make_service(monkeypatch, threshold=0.001)
+
+    service.retrieve(
+        RetrievalRequest(
+            repository_id=7,
+            query="Where are embedding dimensions configured?",
+            top_k=1,
+        )
+    )
+
+    assert service._hybrid_retriever.search.call_args.kwargs["candidate_k"] == 20
+    service._configuration_fusion.fuse.assert_called_once()
+    service._weighted_fusion.fuse.assert_not_called()
+
+
+def test_decisive_batching_query_keeps_rrf_order_without_reranking(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service, _rrf_results = make_service(monkeypatch, threshold=0.001)
+    service._hybrid_retriever.search.return_value = [
+        RetrievalResult(chunk_id=1, score=0.020),
+        RetrievalResult(chunk_id=2, score=0.018),
+    ]
+
+    response = service.retrieve(
+        RetrievalRequest(
+            repository_id=7,
+            query="How are chunks batched before they are sent to the provider?",
+            top_k=1,
+        )
+    )
+
+    assert not response.reranking_applied
+    assert response.reranking_skip_reason == "rrf_margin_exceeded"
+    assert service._hybrid_retriever.search.call_args.kwargs["candidate_k"] == 20
+    service._cross_encoder.rerank.assert_not_called()
+
+
+def test_configuration_reranking_is_capped_at_candidate_pool_size(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service, _rrf_results = make_service(monkeypatch, threshold=0.001)
+    service._candidate_pool_k = 5
+    service._hybrid_retriever.search.return_value = [
+        RetrievalResult(chunk_id=chunk_id, score=0.020 - chunk_id / 10000)
+        for chunk_id in range(1, 11)
+    ]
+    service._cross_encoder.rerank.return_value = [
+        RetrievalResult(chunk_id=chunk_id, score=1.0 - chunk_id / 100)
+        for chunk_id in range(1, 6)
+    ]
+    monkeypatch.setattr(
+        service_module,
+        "chunk_crud",
+        Mock(
+            get_by_ids=Mock(
+                return_value=[
+                    SimpleNamespace(id=chunk_id, content=f"document {chunk_id}")
+                    for chunk_id in range(1, 6)
+                ]
+            )
+        ),
+    )
+
+    service.retrieve(
+        RetrievalRequest(
+            repository_id=7,
+            query="Where are embedding dimensions configured?",
+            top_k=5,
+        )
+    )
+
+    rerank_call = service._cross_encoder.rerank.call_args.kwargs
+    assert len(rerank_call["results"]) == 5
+    assert rerank_call["top_k"] == 5
+
+
+def test_file_definition_query_preserves_hybrid_order_without_reranking(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service, _rrf_results = make_service(monkeypatch, threshold=0.001)
+
+    response = service.retrieve(
+        RetrievalRequest(
+            repository_id=7,
+            query="Which file defines LoginResponse?",
+            top_k=1,
+        )
+    )
+
+    assert not response.reranking_applied
+    assert response.reranking_skip_reason == "definition_lookup_uses_hybrid_order"
+    service._cross_encoder.rerank.assert_not_called()

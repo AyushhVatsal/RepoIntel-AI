@@ -80,12 +80,17 @@ class BM25Index:
             for term in (
                 "embedding model",
                 "batch size",
+                "batching",
+                "batched",
+                "batch",
                 "number of dimensions",
                 "vector dimension",
                 "embedding provider",
             )
         ):
-            query_tokens.extend(("config", "configuration", "setting"))
+            query_tokens.extend(
+                ("config", "configuration", "setting", "batch", "embedding")
+            )
 
         if not query_tokens:
             return []

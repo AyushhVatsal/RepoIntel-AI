@@ -1,4 +1,3 @@
-
 import logging
 import re
 from functools import lru_cache
@@ -41,10 +40,16 @@ _DEFINITION_QUERY_RE = re.compile(
     re.IGNORECASE,
 )
 _CONFIGURATION_QUERY_RE = re.compile(
-    r"^\s*(?:what|which|how\s+many)\s+.{0,100}"
-    r"\b(?:embedding\s+model|batch\s+size|dimensions?|"
-    r"provider|configuration|settings?)\b"
+    r"^\s*(?:(?:what|which|how(?:\s+many)?|where)\s+.{0,100}"
+    r"\b(?:embedding\s+model|batch\s+size|"
+    r"dimensions?|configuration|settings?)\b|"
+    r"(?:what|which)\s+(?:embedding\s+)?provider\b|"
+    r"where\s+.{0,100}\b(?:configured|set|stored)\b)"
     r"\??\s*$",
+    re.IGNORECASE,
+)
+_BATCHING_QUERY_RE = re.compile(
+    r"\b(?:batch(?:ed|ing)?|batcher)\b",
     re.IGNORECASE,
 )
 
@@ -55,6 +60,10 @@ def _is_definition_query(query: str) -> bool:
 
 def _is_configuration_query(query: str) -> bool:
     return bool(_CONFIGURATION_QUERY_RE.match(query))
+
+
+def _is_batching_query(query: str) -> bool:
+    return bool(_BATCHING_QUERY_RE.search(query))
 
 
 @lru_cache(maxsize=1)
@@ -79,16 +88,12 @@ class RetrievalService:
             conditional_rerank_threshold is not None
             and conditional_rerank_threshold < 0
         ):
-            raise ValueError(
-                "conditional_rerank_threshold must be non-negative"
-            )
+            raise ValueError("conditional_rerank_threshold must be non-negative")
         if candidate_pool_k < 1:
             raise ValueError("candidate_pool_k must be at least 1")
 
         self._db = db
-        self._conditional_rerank_threshold = (
-            conditional_rerank_threshold
-        )
+        self._conditional_rerank_threshold = conditional_rerank_threshold
         self._candidate_pool_k = candidate_pool_k
 
         config = EmbeddingConfig()
@@ -121,7 +126,7 @@ class RetrievalService:
             rrf_weight=rrf_weight,
             cross_encoder_weight=cross_encoder_weight,
         )
-        self._definition_fusion = WeightedFusion(
+        self._configuration_fusion = WeightedFusion(
             rrf_weight=0.0,
             cross_encoder_weight=1.0,
         )
@@ -139,8 +144,11 @@ class RetrievalService:
             query_vector = self.embed_query(request.query)
 
         definition_question = _is_definition_query(request.query)
-        targeted_question = definition_question or _is_configuration_query(
-            request.query
+        configuration_question = _is_configuration_query(request.query)
+        targeted_question = (
+            definition_question
+            or configuration_question
+            or _is_batching_query(request.query)
         )
 
         candidate_k = max(
@@ -159,7 +167,7 @@ class RetrievalService:
             candidate_k=candidate_k,
         )
 
-        return self._hydrator.hydrate(rrf_results[:request.top_k])
+        return self._hydrator.hydrate(rrf_results[: request.top_k])
 
     def retrieve(
         self,
@@ -174,13 +182,14 @@ class RetrievalService:
         stage_start = perf_counter()
         if query_vector is None:
             query_vector = self.embed_query(request.query)
-        query_embedding_ms = (
-            perf_counter() - stage_start
-        ) * 1000
+        query_embedding_ms = (perf_counter() - stage_start) * 1000
 
         definition_question = _is_definition_query(request.query)
-        targeted_question = definition_question or _is_configuration_query(
-            request.query
+        configuration_question = _is_configuration_query(request.query)
+        targeted_question = (
+            definition_question
+            or configuration_question
+            or _is_batching_query(request.query)
         )
 
         # Stage 2: Dense + lexical retrieval and RRF fusion.
@@ -201,9 +210,7 @@ class RetrievalService:
             filters=request.filters,
             candidate_k=candidate_k,
         )
-        hybrid_search_ms = (
-            perf_counter() - stage_start
-        ) * 1000
+        hybrid_search_ms = (perf_counter() - stage_start) * 1000
 
         if not rrf_results:
             total_ms = (perf_counter() - total_start) * 1000
@@ -247,8 +254,8 @@ class RetrievalService:
             )
 
         # Preserve the existing conditional reranking behavior.
-        should_skip_reranking = (
-            not targeted_question
+        should_skip_reranking = definition_question or (
+            not configuration_question
             and self._conditional_rerank_threshold is not None
             and (
                 len(rrf_results) < 2
@@ -263,36 +270,36 @@ class RetrievalService:
         cross_encoder_ms = 0.0
         weighted_fusion_ms = 0.0
         reranking_skip_reason = (
-            "rrf_margin_exceeded"
-            if should_skip_reranking
-            else None
+            "definition_lookup_uses_hybrid_order"
+            if definition_question
+            else ("rrf_margin_exceeded" if should_skip_reranking else None)
         )
         ranking_policy = (
             "hybrid_rrf"
             if should_skip_reranking
             else (
                 "cross_encoder_for_definition_or_location_query"
-                if definition_question
+                if definition_question or configuration_question
                 else "weighted_rrf_90_cross_encoder_10"
             )
         )
 
         if should_skip_reranking:
-            final_results = rrf_results[:request.top_k]
+            final_results = rrf_results[: request.top_k]
         else:
             # Stage 3: Fetch candidate content for reranking.
+            rerank_candidate_count = min(
+                len(rrf_results),
+                max(request.top_k, self._candidate_pool_k),
+            )
+            rerank_candidates = rrf_results[:rerank_candidate_count]
             stage_start = perf_counter()
             chunks = chunk_crud.get_by_ids(
                 self._db,
-                [result.chunk_id for result in rrf_results],
+                [result.chunk_id for result in rerank_candidates],
             )
-            documents = {
-                chunk.id: chunk.content
-                for chunk in chunks
-            }
-            candidate_fetch_ms = (
-                perf_counter() - stage_start
-            ) * 1000
+            documents = {chunk.id: chunk.content for chunk in chunks}
+            candidate_fetch_ms = (perf_counter() - stage_start) * 1000
 
             # Stage 4: Cross-encoder reranking.
             stage_start = perf_counter()
@@ -300,36 +307,32 @@ class RetrievalService:
                 self._cross_encoder = get_cross_encoder_reranker()
             cross_encoder_results = self._cross_encoder.rerank(
                 query=request.query,
-                results=rrf_results,
+                results=rerank_candidates,
                 documents=documents,
-                top_k=len(rrf_results),
+                top_k=len(rerank_candidates),
             )
-            cross_encoder_ms = (
-                perf_counter() - stage_start
-            ) * 1000
+            cross_encoder_ms = (perf_counter() - stage_start) * 1000
 
             # Stage 5: Weighted fusion.
             stage_start = perf_counter()
             fusion = (
-                self._definition_fusion
-                if definition_question
+                self._configuration_fusion
+                if configuration_question
                 else self._weighted_fusion
             )
             final_results = fusion.fuse(
-                rrf_results=rrf_results,
+                rrf_results=(
+                    rerank_candidates if configuration_question else rrf_results
+                ),
                 cross_encoder_results=cross_encoder_results,
                 top_k=request.top_k,
             )
-            weighted_fusion_ms = (
-                perf_counter() - stage_start
-            ) * 1000
+            weighted_fusion_ms = (perf_counter() - stage_start) * 1000
 
         # Stage 6: Hydrate final retrieval results.
         stage_start = perf_counter()
         hydrated_results = self._hydrator.hydrate(final_results)
-        hydration_ms = (
-            perf_counter() - stage_start
-        ) * 1000
+        hydration_ms = (perf_counter() - stage_start) * 1000
 
         total_ms = (perf_counter() - total_start) * 1000
         latency_breakdown = {
