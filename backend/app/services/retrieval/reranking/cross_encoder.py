@@ -12,6 +12,25 @@ class CrossEncoderReranker:
     ) -> None:
         self._model = CrossEncoder(model_name)
 
+    def warmup(self) -> None:
+        """Initialize tokenizer and inference kernels before live requests."""
+        query = "How does repository indexing batch and embed code chunks?"
+        document = (
+            "repository indexing chunks embeddings retrieval candidates ranking "
+            * 80
+        )
+        self._model.predict(
+            [(query, document) for _ in range(5)],
+            batch_size=16,
+            show_progress_bar=False,
+            processing_kwargs={
+                "text": {
+                    "max_length": 256,
+                    "truncation": True,
+                }
+            },
+        )
+
     def rerank(
         self,
         *,

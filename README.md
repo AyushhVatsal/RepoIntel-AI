@@ -153,11 +153,12 @@ The latest focused eight-query checks after the configuration-query ranking chan
 
 | Layer | Hit@1 | Hit@3 | Hit@5 | Recall@5 | Precision@5 | MRR@5 | nDCG@5 |
 |---|---:|---:|---:|---:|---:|---:|---:|
+| Dense only | 75.0 | 100.0 | 100.0 | 95.8 | 30.0 | 83.3 | 83.1 |
 | Hybrid-only | 62.5 | 100.0 | 100.0 | 91.7 | 27.5 | 79.2 | 77.1 |
 | Graph-enhanced | 62.5 | 100.0 | 100.0 | 83.3 | 22.5 | 81.3 | 73.7 |
-| V2.2 cross-encoder + 90/10 fusion | 37.5 | 100.0 | 100.0 | 87.5 | 25.0 | 64.6 | 64.2 |
+| Production hybrid + conditional reranking (V2.2 runner) | 62.5 | 100.0 | 100.0 | 91.7 | 27.5 | 81.3 | 78.7 |
 
-The V2.2 cross-encoder result still misses its Recall@5 threshold of 91.6%. The retrieval test suite is therefore **not fully green**; the last full run was 207 passed, 3 failed, and 1 skipped. The latest focused rerun passed 32 checks and still failed the V2.2 Recall@5 gate. Do not treat the V1 and V2 tables as directly comparable: they use different query sets and evaluation modes.
+The V2.2 evaluation runner now exercises the production hybrid + conditional reranking service, rather than a separate always-rerank path. Its latest Recall@5 is 91.7%, meeting the focused gate. The affected focused checks passed: 11 unit/evaluation tests in one run, followed by four dense, hybrid, graph, and production evaluation checks. The full suite has **not** been rerun after these fixes; its last full run before them was 207 passed, 3 failed, and 1 skipped. Do not treat the V1 and V2 tables as directly comparable: they use different query sets and evaluation modes.
 
 ### Latency snapshots
 

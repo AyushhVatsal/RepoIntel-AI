@@ -36,7 +36,12 @@ class LexicalRetriever:
             return []
 
         stmt = (
-            select(Chunk)
+            select(
+                Chunk.id,
+                Chunk.content,
+                Chunk.symbol_name,
+                Chunk.qualified_name,
+            )
             .join(
                 RepositoryFile,
                 Chunk.file_id == RepositoryFile.id,
@@ -104,7 +109,7 @@ class LexicalRetriever:
         )
 
         if index is None:
-            chunks = self.db.scalars(stmt).all()
+            chunks = self.db.execute(stmt).all()
 
             if not chunks:
                 return []

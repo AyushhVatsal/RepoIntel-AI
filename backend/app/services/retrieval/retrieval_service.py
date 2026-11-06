@@ -81,6 +81,74 @@ def get_cross_encoder_reranker() -> CrossEncoderReranker:
     return CrossEncoderReranker()
 
 
+def warmup_retrieval_models() -> list[float]:
+    """Load retrieval models and return a warm query vector for DB priming."""
+    config = EmbeddingConfig()
+    embedding_provider = get_local_embedding_provider(config.model)
+    query_vector = embedding_provider.embed(
+        [
+            "How does repository indexing batch code chunks before "
+            "generating and storing retrieval embeddings?"
+        ]
+    )[0]
+    get_cross_encoder_reranker().warmup()
+    return query_vector
+
+
+def warmup_recent_retrieval_indexes(query_vector: list[float]) -> list[int]:
+    """Prime BM25 and pgvector caches for recent substantial repositories."""
+    from sqlalchemy import func, select
+
+    from app.db.database import SessionLocal
+    from app.models.chunk import Chunk
+    from app.models.repository import Repository, RepositoryStatus
+    from app.services.retrieval.vector_retriever import VectorRetriever
+
+    with SessionLocal() as db:
+        chunk_counts = (
+            select(
+                Chunk.repository_id.label("repository_id"),
+                func.count(Chunk.id).label("chunk_count"),
+            )
+            .group_by(Chunk.repository_id)
+            .subquery()
+        )
+        repository_ids = list(
+            db.scalars(
+                select(Repository.id)
+                .join(
+                    chunk_counts,
+                    chunk_counts.c.repository_id == Repository.id,
+                )
+                .where(Repository.status == RepositoryStatus.INDEXED)
+                .where(chunk_counts.c.chunk_count >= 20)
+                .order_by(Repository.updated_at.desc(), Repository.id.desc())
+                .limit(3)
+            ).all()
+        )
+
+        lexical_retriever = LexicalRetriever(
+            db,
+            get_bm25_index_manager(),
+        )
+        vector_retriever = VectorRetriever(db)
+        model_name = EmbeddingConfig().model
+        for repository_id in repository_ids:
+            lexical_retriever.search(
+                repository_id=repository_id,
+                query="repository retrieval warmup",
+                top_k=1,
+            )
+            vector_retriever.search(
+                query_vector=query_vector,
+                repository_id=repository_id,
+                model=model_name,
+                top_k=5,
+            )
+
+    return repository_ids
+
+
 class RetrievalService:
     """Coordinate hybrid retrieval, reranking, and score fusion."""
 

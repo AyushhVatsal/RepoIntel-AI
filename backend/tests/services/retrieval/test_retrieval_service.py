@@ -13,6 +13,8 @@ from app.services.retrieval.retrieval_service import (
     _is_batching_query,
     _is_configuration_query,
     _is_lexical_navigation_query,
+    warmup_recent_retrieval_indexes,
+    warmup_retrieval_models,
 )
 
 
@@ -78,6 +80,88 @@ def test_configuration_question_is_targeted() -> None:
     assert _is_configuration_query(
         "Where are the embedding model and vector dimensions configured?"
     )
+
+
+def test_warmup_retrieval_models_initializes_shared_providers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    embedding_provider = Mock()
+    embedding_provider.embed.return_value = [[0.1] * 384]
+    reranker = Mock()
+    monkeypatch.setattr(
+        "app.services.retrieval.retrieval_service.get_local_embedding_provider",
+        lambda model_name: embedding_provider,
+    )
+    monkeypatch.setattr(
+        "app.services.retrieval.retrieval_service.get_cross_encoder_reranker",
+        lambda: reranker,
+    )
+
+    query_vector = warmup_retrieval_models()
+
+    assert query_vector == [0.1] * 384
+    embedding_provider.embed.assert_called_once_with(
+        [
+            "How does repository indexing batch code chunks before "
+            "generating and storing retrieval embeddings?"
+        ],
+    )
+    reranker.warmup.assert_called_once_with()
+
+
+def test_warmup_recent_retrieval_indexes_primes_selected_repositories(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    db = Mock()
+    db.__enter__ = Mock(return_value=db)
+    db.__exit__ = Mock(return_value=None)
+    db.scalars.return_value.all.return_value = [1752, 1753]
+    manager = Mock()
+    lexical_retriever = Mock()
+    vector_retriever = Mock()
+    monkeypatch.setattr("app.db.database.SessionLocal", lambda: db)
+    monkeypatch.setattr(
+        "app.services.retrieval.retrieval_service.get_bm25_index_manager",
+        lambda: manager,
+    )
+    monkeypatch.setattr(
+        "app.services.retrieval.retrieval_service.LexicalRetriever",
+        lambda _db, _manager: lexical_retriever,
+    )
+    monkeypatch.setattr(
+        "app.services.retrieval.vector_retriever.VectorRetriever",
+        lambda _db: vector_retriever,
+    )
+
+    repository_ids = warmup_recent_retrieval_indexes([0.1] * 384)
+
+    assert repository_ids == [1752, 1753]
+    assert [call.kwargs for call in lexical_retriever.search.call_args_list] == [
+        {
+            "repository_id": 1752,
+            "query": "repository retrieval warmup",
+            "top_k": 1,
+        },
+        {
+            "repository_id": 1753,
+            "query": "repository retrieval warmup",
+            "top_k": 1,
+        },
+    ]
+    assert [call.kwargs for call in vector_retriever.search.call_args_list] == [
+        {
+            "query_vector": [0.1] * 384,
+            "repository_id": 1752,
+            "model": "BAAI/bge-small-en-v1.5",
+            "top_k": 5,
+        },
+        {
+            "query_vector": [0.1] * 384,
+            "repository_id": 1753,
+            "model": "BAAI/bge-small-en-v1.5",
+            "top_k": 5,
+        },
+    ]
 
 
 def test_batching_question_is_targeted_without_being_config_question() -> None:
