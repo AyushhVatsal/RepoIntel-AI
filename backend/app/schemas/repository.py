@@ -29,6 +29,16 @@ class RepositoryResponse(RepositoryBase):
 
     status: RepositoryStatus
 
+    indexing_progress: int
+
+    indexing_stage: str
+
+    indexing_processed_files: int
+
+    indexing_total_files: int
+
+    indexing_error: str | None = None
+
     primary_language: str | None = None
 
     primary_framework: str | None = None

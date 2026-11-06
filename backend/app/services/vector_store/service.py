@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from app.crud.embedding import upsert
+from app.crud.embedding import upsert, upsert_many
 from app.services.retrieval.filters import RetrievalFilters
 from app.services.vector_store.models import VectorSearchResult
 from app.services.vector_store.repository import VectorStoreRepository
@@ -42,6 +42,31 @@ class VectorStoreService:
             dimensions=dimensions,
             embedding=embedding,
         )
+
+    def store_embeddings(
+        self,
+        embeddings: list[tuple[int, str, int, list[float]]],
+    ) -> None:
+        """Validate and persist a batch of embeddings with one DB round trip."""
+        rows = []
+        for chunk_id, model, dimensions, embedding in embeddings:
+            if chunk_id <= 0:
+                raise ValueError("chunk_id must be greater than 0")
+            if not model.strip():
+                raise ValueError("model must not be empty")
+            if dimensions <= 0 or len(embedding) != dimensions:
+                raise ValueError(
+                    f"embedding dimension mismatch: expected {dimensions}, "
+                    f"got {len(embedding)}"
+                )
+            rows.append({
+                "chunk_id": chunk_id,
+                "model": model,
+                "dimensions": dimensions,
+                "embedding": embedding,
+            })
+
+        upsert_many(self.repository.db, rows)
 
     def similarity_search(
         self,

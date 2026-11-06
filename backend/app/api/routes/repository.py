@@ -1,5 +1,9 @@
+import logging
+from time import perf_counter
+
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     HTTPException,
     Response,
@@ -9,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps.auth import get_current_active_user
 from app.api.deps.db import get_db
+from app.crud.repository_symbol import repository_symbol_crud
 from app.exceptions.repository import (
     InvalidRepositoryUrlError,
     RepositoryAlreadyExistsError,
@@ -26,7 +31,7 @@ from app.schemas.repository import (
 )
 from app.schemas.repository_file import RepositoryFileResponse
 from app.schemas.repository_symbol import RepositorySymbolResponse
-from app.crud.repository_symbol import repository_symbol_crud
+from app.services.repository.indexing_worker import run_repository_indexing
 from app.services.repository.repository_service import (
     get_repository_service,
 )
@@ -35,25 +40,38 @@ router = APIRouter(
     prefix="/repositories",
     tags=["Repositories"],
 )
+logger = logging.getLogger(__name__)
 
 
 @router.post(
     "/",
     response_model=RepositoryResponse,
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_202_ACCEPTED,
 )
 def create_repository(
     repository_in: RepositoryCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ) -> RepositoryResponse:
 
     try:
-        return get_repository_service().index_repository(
+        started = perf_counter()
+        repository = get_repository_service().create_indexing_job(
             db=db,
             owner_id=current_user.id,
             repository_in=repository_in,
         )
+        background_tasks.add_task(
+            run_repository_indexing,
+            repository.id,
+        )
+        logger.info(
+            "Repository indexing job queued: repository_id=%s queue_ms=%.1f",
+            repository.id,
+            (perf_counter() - started) * 1000,
+        )
+        return repository
 
     except RepositoryAlreadyExistsError as exc:
         raise HTTPException(

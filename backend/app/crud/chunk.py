@@ -32,6 +32,8 @@ class ChunkCRUD:
         self,
         db: Session,
         chunks: list[ChunkCreate],
+        *,
+        commit: bool = True,
     ) -> list[Chunk]:
         """Bulk insert chunks."""
         if not chunks:
@@ -43,11 +45,13 @@ class ChunkCRUD:
         ]
 
         db.add_all(db_chunks)
-        db.commit()
+        if commit:
+            db.commit()
+            for db_chunk in db_chunks:
+                db.refresh(db_chunk)
 
-        for db_chunk in db_chunks:
-            db.refresh(db_chunk)
-
+        # In caller-managed transactions the caller can flush once for a
+        # larger group of files before it needs the generated chunk IDs.
         return db_chunks
 
     def get(

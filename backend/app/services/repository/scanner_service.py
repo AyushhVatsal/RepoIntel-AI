@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from datetime import datetime
 from pathlib import Path
 
@@ -61,33 +62,56 @@ class ScannerService:
         Scan a repository and build metadata for all supported files.
         """
 
-        self._validate_repository_size(repository_path)
-
         repository_files: list[RepositoryFileCreate] = []
+        total_size = 0
 
         try:
-            for path in repository_path.rglob("*"):
-
-                if not path.is_file():
-                    continue
-
-                if self._should_ignore(path):
-                    continue
-
-                # Skip files larger than the configured limit
-                if (
-                    self._get_file_size(path)
-                    > MAX_FILE_SIZE_BYTES
-                ):
-                    continue
-
-                repository_files.append(
-                    self._build_repository_file(
-                        repository_id=repository_id,
-                        repository_root=repository_path,
-                        file_path=path,
-                    )
+            # Prune ignored directories before descending. Path.rglob walked
+            # through .git, node_modules, virtual environments, and build
+            # outputs, then discarded their files afterward. Doing one
+            # top-down walk avoids that wasted traversal and the previous
+            # separate full-tree size scan.
+            for root, directories, filenames in os.walk(
+                repository_path,
+                topdown=True,
+            ):
+                directories[:] = sorted(
+                    directory
+                    for directory in directories
+                    if directory not in IGNORED_DIRECTORIES
                 )
+
+                for filename in filenames:
+                    path = Path(root) / filename
+
+                    if self._should_ignore(path):
+                        continue
+
+                    try:
+                        stat_result = path.stat()
+                    except OSError:
+                        # Files can disappear while a checkout is being
+                        # scanned; ignore that file, as rglob did before.
+                        continue
+
+                    total_size += stat_result.st_size
+                    if total_size > MAX_REPOSITORY_SIZE_BYTES:
+                        raise RepositoryTooLargeError(
+                            "Repository size exceeds the maximum allowed limit "
+                            f"of {MAX_REPOSITORY_SIZE_MB} MB."
+                        )
+
+                    if stat_result.st_size > MAX_FILE_SIZE_BYTES:
+                        continue
+
+                    repository_files.append(
+                        self._build_repository_file(
+                            repository_id=repository_id,
+                            repository_root=repository_path,
+                            file_path=path,
+                            stat_result=stat_result,
+                        )
+                    )
 
             return repository_files
 
@@ -185,6 +209,8 @@ class ScannerService:
         repository_id: int,
         repository_root: Path,
         file_path: Path,
+        *,
+        stat_result: os.stat_result | None = None,
     ) -> RepositoryFileCreate:
         """
         Build a RepositoryFileCreate object from a physical file.
@@ -203,8 +229,9 @@ class ScannerService:
         language = self._get_language(file_path)
 
         support_tier = self._get_support_tier(file_path)
-        size = self._get_file_size(file_path)
-        last_modified = self._get_last_modified(file_path)
+        stat_result = stat_result or file_path.stat()
+        size = stat_result.st_size
+        last_modified = datetime.fromtimestamp(stat_result.st_mtime)
         sha256_hash = self._calculate_sha256(file_path)
 
         return RepositoryFileCreate(
@@ -223,21 +250,4 @@ class ScannerService:
             last_modified=last_modified,
         )
     
-    def _validate_repository_size(
-        self,
-        repository_path: Path,
-    ) -> None:
-
-        total_size = sum(
-            file.stat().st_size
-            for file in repository_path.rglob("*")
-            if file.is_file()
-        )
-
-        if total_size > MAX_REPOSITORY_SIZE_BYTES:
-            raise RepositoryTooLargeError(
-                f"Repository size exceeds the maximum allowed limit of "
-                f"{MAX_REPOSITORY_SIZE_MB} MB."
-            )
-        
 scanner_service = ScannerService()

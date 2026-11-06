@@ -1,20 +1,34 @@
 from __future__ import annotations
 
+import os
 import shutil
+import stat
 from pathlib import Path
 from urllib.parse import urlparse
 
 from git import GitCommandError, Repo
 
+from app.exceptions.repository import (
+    InvalidRepositoryUrlError,
+    RepositoryCloneError,
+    UnsupportedGitProviderError,
+)
 from app.services.repository.constants import (
     CLONE_DIRECTORY,
     SUPPORTED_GIT_HOSTS,
 )
-from app.exceptions.repository import (
-    InvalidRepositoryUrlError,
-    RepositoryCloneError,
-    UnsupportedGitProviderError
-)
+
+
+def remove_clone_directory(clone_path: Path) -> None:
+    """Remove a clone, clearing Windows read-only attributes when needed."""
+
+    def retry_readonly_removal(function, path, error) -> None:
+        if not isinstance(error, PermissionError):
+            raise error
+        os.chmod(path, stat.S_IWRITE)
+        function(path)
+
+    shutil.rmtree(clone_path, onexc=retry_readonly_removal)
 
 
 class CloneService:
@@ -83,7 +97,7 @@ class CloneService:
         clone_path = CLONE_DIRECTORY / repository_name
 
         if clone_path.exists():
-            shutil.rmtree(clone_path)
+            remove_clone_directory(clone_path)
 
         try:
             Repo.clone_from(
@@ -95,7 +109,7 @@ class CloneService:
 
         except GitCommandError as exc:
             if clone_path.exists():
-                shutil.rmtree(clone_path)
+                remove_clone_directory(clone_path)
 
             raise RepositoryCloneError(
                 "Failed to clone repository."

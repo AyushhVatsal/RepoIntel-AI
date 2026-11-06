@@ -208,7 +208,7 @@ uv run alembic upgrade head
 Start the API:
 
 ```bash
-uv run uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload --reload-dir app
 ```
 
 Run tests:

@@ -75,6 +75,10 @@ def test_embed_generates_embeddings(
     assert results[0].cached is False
 
     provider.embed.assert_called_once()
+    profile = service.profile_snapshot()
+    assert profile["chunks"] == 2
+    assert profile["cache_misses"] == 2
+    assert profile["provider_batches"] == 1
 
 
 def test_embed_uses_cache(
@@ -100,6 +104,9 @@ def test_embed_uses_cache(
     assert second[0].cached is True
 
     assert provider.embed.call_count == 1
+    profile = service.profile_snapshot()
+    assert profile["cache_hits"] == 1
+    assert profile["cache_misses"] == 1
 
 
 def test_embed_batches_chunks(

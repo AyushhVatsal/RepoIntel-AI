@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from threading import Lock
+from time import perf_counter
 
 from app.schemas.chunk import ChunkCreate
 from app.services.embedding.batching import EmbeddingBatcher
@@ -23,6 +25,16 @@ class EmbeddingService:
         self._config = config
         self._cache = cache or EmbeddingCache()
         self._batcher = EmbeddingBatcher(config.batch_size)
+        self._profile_lock = Lock()
+        self._profile = {
+            "chunks": 0,
+            "cache_hits": 0,
+            "cache_misses": 0,
+            "provider_batches": 0,
+            "cache_lookup_ms": 0.0,
+            "provider_wall_ms": 0.0,
+            "service_overhead_ms": 0.0,
+        }
 
         if provider.dimensions != config.dimensions:
             raise ValueError(
@@ -34,6 +46,30 @@ class EmbeddingService:
     def model_name(self) -> str:
         """Return the embedding model used by this service."""
         return self._provider.model
+
+    @property
+    def batch_size(self) -> int:
+        """Maximum number of texts passed to the provider per batch."""
+        return self._batcher.batch_size
+
+    def profile_snapshot(self) -> dict[str, object]:
+        """Return cache, provider, and model-stage profiling counters."""
+        with self._profile_lock:
+            snapshot = dict(self._profile)
+        provider_profile = getattr(self._provider, "profile_snapshot", None)
+        snapshot["provider"] = provider_profile() if provider_profile else {}
+        return snapshot
+
+    def reset_profile(self) -> None:
+        """Reset counters so the next repository job is measured alone."""
+        with self._profile_lock:
+            self._profile = {
+                key: 0.0 if key.endswith("_ms") else 0
+                for key in self._profile
+            }
+        provider_reset = getattr(self._provider, "reset_profile", None)
+        if provider_reset:
+            provider_reset()
 
     def embed_query(
         self,
@@ -73,6 +109,9 @@ class EmbeddingService:
 
         results: list[EmbeddingResult] = []
         pending: list[ChunkCreate] = []
+        started = perf_counter()
+        cache_started = perf_counter()
+        cache_hits = 0
 
         for chunk in chunks:
             if not chunk.content.strip():
@@ -86,6 +125,7 @@ class EmbeddingService:
             )
 
             if cached_embedding is not None:
+                cache_hits += 1
                 results.append(
                     EmbeddingResult(
                         repository_id=chunk.repository_id,
@@ -100,10 +140,17 @@ class EmbeddingService:
             else:
                 pending.append(chunk)
 
+        cache_lookup_ms = (perf_counter() - cache_started) * 1000
+        provider_wall_ms = 0.0
+        provider_batches = 0
+
         for batch in self._batcher.batch(pending):
             texts = [chunk.content for chunk in batch]
 
+            provider_started = perf_counter()
             embeddings = self._provider.embed(texts)
+            provider_wall_ms += (perf_counter() - provider_started) * 1000
+            provider_batches += 1
 
             if len(embeddings) != len(batch):
                 raise ValueError(
@@ -142,4 +189,16 @@ class EmbeddingService:
                     )
                 )
 
+        total_ms = (perf_counter() - started) * 1000
+        with self._profile_lock:
+            self._profile["chunks"] += len(chunks)
+            self._profile["cache_hits"] += cache_hits
+            self._profile["cache_misses"] += len(pending)
+            self._profile["provider_batches"] += provider_batches
+            self._profile["cache_lookup_ms"] += cache_lookup_ms
+            self._profile["provider_wall_ms"] += provider_wall_ms
+            self._profile["service_overhead_ms"] += max(
+                total_ms - cache_lookup_ms - provider_wall_ms,
+                0.0,
+            )
         return results

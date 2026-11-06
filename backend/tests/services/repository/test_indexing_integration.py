@@ -1,6 +1,9 @@
 from pathlib import Path
 from unittest.mock import patch
+
 import pytest
+from sqlalchemy import delete
+
 from app.crud.chunk import chunk_crud
 from app.crud.repository import repository_crud
 from app.crud.repository_file import repository_file_crud
@@ -9,10 +12,8 @@ from app.db.database import SessionLocal
 from app.models.embedding import Embedding
 from app.models.repository import RepositoryStatus
 from app.models.user import User
-from app.services.repository.repository_service import RepositoryService
 from app.schemas.repository import RepositoryCreate
-from sqlalchemy import delete
-
+from app.services.repository.repository_service import RepositoryService
 
 TEST_REPOSITORY = Path(__file__).resolve().parent / "fixture_repo"
 
@@ -101,6 +102,10 @@ def test_repository_indexing_end_to_end():
             )
 
         assert repository.status == RepositoryStatus.INDEXED
+        assert repository.indexing_progress == 100
+        assert repository.indexing_stage == "completed"
+        assert repository.indexing_processed_files == 1
+        assert repository.indexing_total_files == 1
 
         persisted_files = repository_file_crud.get_by_repository(
             db=db,
@@ -212,7 +217,7 @@ def test_repository_indexing_fails_when_vector_storage_fails():
                 return_value="main",
             ),
             patch(
-                "app.services.repository.repository_service.VectorStoreService.store_embedding",
+                "app.services.repository.repository_service.VectorStoreService.store_embeddings",
                 side_effect=RuntimeError("vector storage failure"),
             ),
         ):
@@ -225,14 +230,15 @@ def test_repository_indexing_fails_when_vector_storage_fails():
 
         db.rollback()
 
-        assert (
-            repository_crud.get_by_github_url(
-                db=db,
-                github_url=str(repository_create.github_url),
-                owner_id=user.id,
-            )
-            is None
+        failed_repository = repository_crud.get_by_github_url(
+            db=db,
+            github_url=str(repository_create.github_url),
+            owner_id=user.id,
         )
+        assert failed_repository is not None
+        assert failed_repository.status == RepositoryStatus.FAILED
+        assert failed_repository.indexing_stage == "failed"
+        assert "vector storage failure" in failed_repository.indexing_error
 
     finally:
         db.rollback()

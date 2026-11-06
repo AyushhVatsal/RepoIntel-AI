@@ -23,6 +23,8 @@ class RepositoryFileCRUD:
         self,
         db: Session,
         files: list[RepositoryFileCreate],
+        *,
+        commit: bool = True,
     ) -> list[RepositoryFile]:
         db_files = [
             RepositoryFile(**file.model_dump())
@@ -30,11 +32,13 @@ class RepositoryFileCRUD:
         ]
 
         db.add_all(db_files)
-        db.commit()
-
-        # Refresh to get database IDs
-        for db_file in db_files:
-            db.refresh(db_file)
+        if commit:
+            db.commit()
+            for db_file in db_files:
+                db.refresh(db_file)
+        else:
+            # Flush assigns IDs without a SELECT/refresh per file.
+            db.flush()
 
         return db_files
 

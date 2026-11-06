@@ -2,25 +2,26 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     DateTime,
-    Enum as SqlEnum,
+    ForeignKey,
     Integer,
     String,
-    UniqueConstraint,
     func,
 )
+from sqlalchemy import (
+    Enum as SqlEnum,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import ForeignKey
 
 from app.db.database import Base
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from app.models.conversation import Conversation
     from app.models.repository_file import RepositoryFile
     from app.models.user import User
-    from app.models.conversation import Conversation
 
 
 class RepositoryStatus(str, Enum):
@@ -66,6 +67,36 @@ class Repository(Base):
         nullable=False,
         default=RepositoryStatus.PENDING,
     )
+
+    indexing_progress: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+    indexing_stage: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        default="queued",
+        server_default="queued",
+    )
+
+    indexing_processed_files: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+    indexing_total_files: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+    indexing_error: Mapped[str | None] = mapped_column(String(2000))
 
     primary_language: Mapped[str | None] = mapped_column(
         String(100),
@@ -127,4 +158,4 @@ class Repository(Base):
         "Conversation",
         back_populates="repository",
         cascade="all, delete-orphan",
-    )   
+    )

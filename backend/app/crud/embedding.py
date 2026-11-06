@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.models.chunk import Chunk
 from app.models.embedding import Embedding
 
+
 def get_by_chunk_and_model(
     db: Session,
     chunk_id: int,
@@ -62,6 +63,26 @@ def upsert(
     ).returning(Embedding)
 
     return db.scalar(stmt)
+
+
+def upsert_many(
+    db: Session,
+    embeddings: list[dict],
+) -> None:
+    """Insert or update a batch of chunk embeddings in one statement."""
+    if not embeddings:
+        return
+
+    stmt = insert(Embedding).values(embeddings)
+    stmt = stmt.on_conflict_do_update(
+        constraint="uq_embedding_chunk_model",
+        set_={
+            "dimensions": stmt.excluded.dimensions,
+            "embedding": stmt.excluded.embedding,
+            "updated_at": func.now(),
+        },
+    )
+    db.execute(stmt)
 
 
 def delete_by_chunk(

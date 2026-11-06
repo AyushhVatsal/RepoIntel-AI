@@ -3,7 +3,6 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.models.repository_symbol import RepositorySymbol
-from app.schemas.repository_symbol import RepositorySymbolCreate
 
 
 class RepositorySymbolCRUD:
@@ -13,6 +12,8 @@ class RepositorySymbolCRUD:
         self,
         db,
         symbols,
+        *,
+        commit: bool = True,
     ):
         unique_symbols = {}
 
@@ -32,7 +33,8 @@ class RepositorySymbolCRUD:
         ]
 
         db.add_all(db_symbols)
-        db.commit()
+        if commit:
+            db.commit()
 
         return db_symbols
     
