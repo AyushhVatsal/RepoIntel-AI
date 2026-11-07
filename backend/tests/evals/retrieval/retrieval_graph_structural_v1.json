@@ -1,0 +1,339 @@
+[
+  {
+    "id": "graph_structural_direct_imports_001",
+    "category": "structural",
+    "query": "Which internal modules does the authentication dependency import?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/api/deps/auth.py",
+      "backend/app/api/deps/db.py",
+      "backend/app/core/security.py",
+      "backend/app/crud/user.py",
+      "backend/app/models/user.py"
+    ]
+  },
+  {
+    "id": "graph_structural_cross_file_auth_001",
+    "category": "structural",
+    "query": "Trace the authentication API route through its dependency to JWT decoding.",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/api/routes/auth.py",
+      "backend/app/api/deps/auth.py",
+      "backend/app/core/security.py"
+    ]
+  },
+  {
+    "id": "graph_structural_multihop_user_model_001",
+    "category": "structural",
+    "query": "Which user model is reached through the authentication dependency and user CRUD service?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/api/deps/auth.py",
+      "backend/app/crud/user.py",
+      "backend/app/models/user.py"
+    ]
+  },
+  {
+    "id": "graph_structural_token_configuration_001",
+    "category": "structural",
+    "query": "Where are access tokens decoded and which configuration supplies the signing settings?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/core/security.py",
+      "backend/app/core/config.py"
+    ]
+  },
+  {
+    "id": "graph_structural_no_expansion_embedding_001",
+    "category": "structural",
+    "query": "Where is the embedding model batch size configured?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/services/embedding/models/embedding_config.py"
+    ]
+  },
+  {
+    "id": "graph_structural_no_irrelevant_auth_001",
+    "category": "structural",
+    "query": "How are Tree-sitter captures converted into repository symbols?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/services/parsers/tree_sitter/symbol_extractor.py"
+    ]
+  },
+  {
+    "id": "graph_structural_auth_login_crud_001",
+    "category": "structural",
+    "query": "Trace an authentication login request to user lookup and password verification.",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/api/routes/auth.py",
+      "backend/app/crud/user.py",
+      "backend/app/core/security.py",
+      "backend/app/models/user.py"
+    ]
+  },
+  {
+    "id": "graph_structural_active_user_chain_001",
+    "category": "structural",
+    "query": "Which dependency checks that the authenticated user is active and what model does it use?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/api/deps/auth.py",
+      "backend/app/models/user.py"
+    ]
+  },
+  {
+    "id": "graph_structural_bearer_dependency_001",
+    "category": "structural",
+    "query": "How does the bearer token dependency reach the JWT decoder and database session?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/api/deps/auth.py",
+      "backend/app/api/deps/db.py",
+      "backend/app/core/security.py"
+    ]
+  },
+  {
+    "id": "graph_structural_user_registration_chain_001",
+    "category": "structural",
+    "query": "Which files handle user registration from the route through persistence and response schema?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/api/routes/auth.py",
+      "backend/app/crud/user.py",
+      "backend/app/models/user.py",
+      "backend/app/schemas/user.py"
+    ]
+  },
+  {
+    "id": "graph_structural_repository_create_flow_001",
+    "category": "structural",
+    "query": "Trace repository creation from the API route into the repository service and clone operation.",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/api/routes/repository.py",
+      "backend/app/services/repository/repository_service.py",
+      "backend/app/services/repository/clone_service.py"
+    ]
+  },
+  {
+    "id": "graph_structural_async_index_flow_001",
+    "category": "structural",
+    "query": "Which files start and execute repository indexing after the create request returns?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/api/routes/repository.py",
+      "backend/app/services/repository/indexing_worker.py",
+      "backend/app/services/repository/repository_service.py"
+    ]
+  },
+  {
+    "id": "graph_structural_index_graph_lifecycle_001",
+    "category": "structural",
+    "query": "How does successful repository indexing trigger an independently tracked graph build?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/api/routes/repository.py",
+      "backend/app/services/knowledge_graph/worker.py",
+      "backend/app/services/knowledge_graph/lifecycle.py",
+      "backend/app/services/knowledge_graph/builder.py"
+    ]
+  },
+  {
+    "id": "graph_structural_graph_refresh_001",
+    "category": "structural",
+    "query": "Which code rebuilds repository graph records and removes stale graph data?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/services/knowledge_graph/lifecycle.py",
+      "backend/app/services/knowledge_graph/builder.py",
+      "backend/app/models/graph_node.py",
+      "backend/app/models/graph_edge.py"
+    ]
+  },
+  {
+    "id": "graph_structural_repository_scan_parse_001",
+    "category": "structural",
+    "query": "Trace repository source scanning into parser dispatch and parsed file content.",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/services/repository/repository_service.py",
+      "backend/app/services/repository/scanner_service.py",
+      "backend/app/services/parsers/parser_service.py",
+      "backend/app/services/parsers/models/file_content.py"
+    ]
+  },
+  {
+    "id": "graph_structural_treesitter_symbol_pipeline_001",
+    "category": "structural",
+    "query": "Which components execute Tree-sitter queries and convert captures into repository symbols?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/services/parsers/tree_sitter/parser.py",
+      "backend/app/services/parsers/tree_sitter/query_extractor.py",
+      "backend/app/services/parsers/tree_sitter/symbol_extractor.py",
+      "backend/app/services/parsers/symbol_converter.py"
+    ]
+  },
+  {
+    "id": "graph_structural_chunking_pipeline_001",
+    "category": "structural",
+    "query": "Trace parsed symbols through chunking into stored function and class chunks.",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/services/parsers/symbol_converter.py",
+      "backend/app/services/chunking/service.py",
+      "backend/app/services/chunking/chunkers/symbol.py",
+      "backend/app/models/chunk.py"
+    ]
+  },
+  {
+    "id": "graph_structural_embedding_batch_pipeline_001",
+    "category": "structural",
+    "query": "Which files batch chunk texts and send each batch to the local embedding provider?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/services/embedding/service.py",
+      "backend/app/services/embedding/batching.py",
+      "backend/app/services/embedding/providers/local.py",
+      "backend/app/services/embedding/providers/base.py"
+    ]
+  },
+  {
+    "id": "graph_structural_embedding_batch_config_001",
+    "category": "structural",
+    "query": "Where is the embedding batch size defined and consumed by the batcher?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/services/embedding/models/embedding_config.py",
+      "backend/app/services/embedding/batching.py",
+      "backend/app/services/embedding/service.py"
+    ]
+  },
+  {
+    "id": "graph_structural_embedding_cache_storage_001",
+    "category": "structural",
+    "query": "How does embedding generation use the cache before vectors are persisted to the database?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/services/embedding/service.py",
+      "backend/app/services/embedding/cache.py",
+      "backend/app/services/vector_store/service.py",
+      "backend/app/crud/embedding.py"
+    ]
+  },
+  {
+    "id": "graph_structural_dense_vector_query_001",
+    "category": "structural",
+    "query": "Which components compare a query embedding with stored chunk vectors and return repository results?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/services/retrieval/vector_retriever.py",
+      "backend/app/services/vector_store/service.py",
+      "backend/app/services/vector_store/repository.py",
+      "backend/app/models/embedding.py"
+    ]
+  },
+  {
+    "id": "graph_structural_hybrid_rrf_pipeline_001",
+    "category": "structural",
+    "query": "Trace dense and BM25 candidates through reciprocal rank fusion into retrieval results.",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/services/retrieval/hybrid/retriever.py",
+      "backend/app/services/retrieval/lexical/retriever.py",
+      "backend/app/services/retrieval/fusion/rrf.py",
+      "backend/app/services/retrieval/retrieval_service.py"
+    ]
+  },
+  {
+    "id": "graph_structural_conditional_reranker_001",
+    "category": "structural",
+    "query": "Which retrieval code decides whether to apply cross-encoder reranking and runs the model?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/services/retrieval/retrieval_service.py",
+      "backend/app/services/retrieval/reranking/cross_encoder.py",
+      "backend/app/services/retrieval/fusion/weighted.py"
+    ]
+  },
+  {
+    "id": "graph_structural_graph_opt_in_api_001",
+    "category": "structural",
+    "query": "Which opt-in API route invokes graph-enhanced retrieval and which service traverses graph links?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/api/routes/retrieval.py",
+      "backend/app/services/retrieval/graph_enhanced_service.py",
+      "backend/app/services/retrieval/graph_retriever.py"
+    ]
+  },
+  {
+    "id": "graph_structural_import_edge_resolution_001",
+    "category": "structural",
+    "query": "How are Python import symbols resolved to unambiguous indexed file graph edges?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/services/knowledge_graph/builder.py",
+      "backend/app/models/graph_edge.py",
+      "backend/app/models/repository_symbol.py"
+    ]
+  },
+  {
+    "id": "graph_structural_graph_candidate_filter_001",
+    "category": "structural",
+    "query": "Which code applies repository role filters before graph candidates are limited and scored?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/services/retrieval/graph_retriever.py",
+      "backend/app/services/retrieval/filters.py",
+      "backend/app/models/repository_file.py"
+    ]
+  },
+  {
+    "id": "graph_structural_graph_path_fusion_001",
+    "category": "structural",
+    "query": "How are multi-hop graph paths preserved while graph candidates are diversified and fused?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/services/retrieval/graph_retriever.py",
+      "backend/app/services/retrieval/graph_candidate_selector.py",
+      "backend/app/services/retrieval/fusion/graph_fusion.py",
+      "backend/app/services/retrieval/hydrator.py"
+    ]
+  },
+  {
+    "id": "graph_structural_package_model_exports_001",
+    "category": "structural",
+    "query": "Which backend package files expose the repository, chunk, and embedding models?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/models/__init__.py",
+      "backend/app/models/repository.py",
+      "backend/app/models/chunk.py",
+      "backend/app/models/embedding.py"
+    ]
+  },
+  {
+    "id": "graph_structural_no_auth_expansion_parser_001",
+    "category": "structural",
+    "query": "How does the parser extract names from syntax tree captures?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/services/parsers/tree_sitter/symbol_extractor.py",
+      "backend/app/services/parsers/tree_sitter/capture_names.py"
+    ]
+  },
+  {
+    "id": "graph_structural_no_embedding_expansion_tokenizer_001",
+    "category": "structural",
+    "query": "Which code tokenizes source text for BM25 lexical retrieval?",
+    "repository_id": 49,
+    "expected_file_paths": [
+      "backend/app/services/retrieval/lexical/tokenizer.py",
+      "backend/app/services/retrieval/lexical/index.py"
+    ]
+  }
+]

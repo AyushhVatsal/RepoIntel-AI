@@ -10,7 +10,8 @@ from app.crud.repository_file import repository_file_crud
 from app.crud.repository_symbol import repository_symbol_crud
 from app.db.database import SessionLocal
 from app.models.embedding import Embedding
-from app.models.repository import RepositoryStatus
+from app.models.graph_node import GraphNode
+from app.models.repository import GraphBuildStatus, RepositoryStatus
 from app.models.user import User
 from app.schemas.repository import RepositoryCreate
 from app.services.repository.repository_service import RepositoryService
@@ -106,6 +107,11 @@ def test_repository_indexing_end_to_end():
         assert repository.indexing_stage == "completed"
         assert repository.indexing_processed_files == 1
         assert repository.indexing_total_files == 1
+        assert repository.graph_status == GraphBuildStatus.READY.value
+        assert repository.graph_built_at is not None
+        assert db.query(GraphNode).filter(
+            GraphNode.repository_id == repository.id
+        ).count() > 0
 
         persisted_files = repository_file_crud.get_by_repository(
             db=db,

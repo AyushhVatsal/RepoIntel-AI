@@ -71,6 +71,8 @@ class V22RetrievalEvalRunner:
             relevant_results=sum(
                 path in expected_paths for path in retrieved_paths
             ),
+            latency_ms=response.latency_ms,
+            latency_breakdown_ms=response.latency_breakdown_ms,
         )
 
     def run(

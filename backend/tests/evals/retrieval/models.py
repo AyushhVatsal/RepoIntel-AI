@@ -33,6 +33,12 @@ class RetrievalEvalResult:
     retrieved_file_paths: tuple[str, ...]
     first_relevant_rank: int | None
     relevant_results: int
+    latency_ms: float | None = None
+    graph_candidate_count: int | None = None
+    latency_breakdown_ms: dict[str, float] | None = None
+    independent_seed_count: int = 0
+    independent_seed_candidate_count: int = 0
+    independent_seed_file_paths: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

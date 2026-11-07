@@ -51,6 +51,17 @@ class RetrievalResultHydrator:
                         if result.retrieval_score is not None
                         else result.score
                     ),
+                    graph_hop_count=result.graph_hop_count,
+                    graph_path=(
+                        list(result.graph_path)
+                        if result.graph_path is not None
+                        else None
+                    ),
+                    relationship_types=(
+                        list(result.relationship_types)
+                        if result.relationship_types is not None
+                        else None
+                    ),
                 )
             )
 

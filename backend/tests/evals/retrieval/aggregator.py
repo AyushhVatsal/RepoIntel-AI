@@ -1,5 +1,7 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
+from math import ceil
+from statistics import median
 
 from .metrics import (
     hit_rate_at_k,
@@ -34,6 +36,8 @@ class RetrievalEvalSummary:
     ndcg_at_5: float
     unique_file_ratio_at_5: float
     duplicate_chunk_rate_at_5: float
+    latency_p50_ms: float
+    latency_p95_ms: float
 
 
 def aggregate_results(
@@ -41,6 +45,16 @@ def aggregate_results(
 ) -> RetrievalEvalSummary:
     """Aggregate retrieval evaluation results."""
 
+    latencies = sorted(
+        result.latency_ms
+        for result in results
+        if result.latency_ms is not None
+    )
+    p95 = (
+        latencies[min(len(latencies) - 1, ceil(0.95 * len(latencies)) - 1)]
+        if latencies
+        else 0.0
+    )
     return RetrievalEvalSummary(
         total_cases=len(results),
         hit_rate_at_1=hit_rate_at_k(
@@ -95,6 +109,8 @@ def aggregate_results(
             results,
             k=5,
         ),
+        latency_p50_ms=median(latencies) if latencies else 0.0,
+        latency_p95_ms=p95,
     )
 
 

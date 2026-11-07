@@ -1,4 +1,5 @@
 import pytest
+
 from tests.evals.retrieval.aggregator import aggregate_results
 from tests.evals.retrieval.models import QueryCategory, RetrievalEvalResult
 
@@ -89,3 +90,28 @@ def test_redundancy_diagnostics_handle_empty_results() -> None:
 
     assert summary.unique_file_ratio_at_5 == 0.0
     assert summary.duplicate_chunk_rate_at_5 == 0.0
+
+
+def test_latency_summary_uses_nearest_rank_percentile() -> None:
+    results = [
+        make_result(
+            expected=("a.py",),
+            retrieved=("a.py",),
+            first_relevant_rank=1,
+        )
+        for _ in range(20)
+    ]
+    results = [
+        RetrievalEvalResult(
+            **{
+                **result.__dict__,
+                "latency_ms": latency,
+            }
+        )
+        for result, latency in zip(results, range(1, 21))
+    ]
+
+    summary = aggregate_results(results)
+
+    assert summary.latency_p50_ms == 10.5
+    assert summary.latency_p95_ms == 19

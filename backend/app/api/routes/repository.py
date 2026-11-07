@@ -9,6 +9,7 @@ from fastapi import (
     Response,
     status,
 )
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app.api.deps.auth import get_current_active_user
@@ -24,6 +25,11 @@ from app.exceptions.repository import (
     RepositoryTooLargeError,
     UnsupportedGitProviderError,
 )
+from app.models.repository import (
+    GraphBuildStatus,
+    Repository,
+    RepositoryStatus,
+)
 from app.models.user import User
 from app.schemas.repository import (
     RepositoryCreate,
@@ -31,6 +37,7 @@ from app.schemas.repository import (
 )
 from app.schemas.repository_file import RepositoryFileResponse
 from app.schemas.repository_symbol import RepositorySymbolResponse
+from app.services.knowledge_graph.worker import run_repository_graph_build
 from app.services.repository.indexing_worker import run_repository_indexing
 from app.services.repository.repository_service import (
     get_repository_service,
@@ -136,13 +143,72 @@ def get_repository(
             repository_id=repository_id,
             owner_id=current_user.id,
         )
-
     except RepositoryNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
-        )
+        ) from exc
 
+
+@router.post(
+    "/{repository_id}/graph/rebuild",
+    response_model=RepositoryResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def rebuild_repository_graph(
+    repository_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+) -> RepositoryResponse:
+    """Queue an independent graph rebuild for an indexed repository."""
+    try:
+        repository = get_repository_service().get_repository(
+            db=db,
+            repository_id=repository_id,
+            owner_id=current_user.id,
+        )
+        if repository.status != RepositoryStatus.INDEXED:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Repository must be indexed before graph rebuild.",
+            )
+        queued = db.execute(
+            update(Repository)
+            .where(
+                Repository.id == repository_id,
+                Repository.status == RepositoryStatus.INDEXED,
+                Repository.graph_status.not_in(
+                    (
+                        GraphBuildStatus.QUEUED.value,
+                        GraphBuildStatus.BUILDING.value,
+                    )
+                ),
+            )
+            .values(
+                graph_status=GraphBuildStatus.QUEUED.value,
+                graph_error=None,
+            )
+        )
+        if queued.rowcount != 1:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A graph build is already queued or running.",
+            )
+
+        db.commit()
+        db.refresh(repository)
+        background_tasks.add_task(
+            run_repository_graph_build,
+            repository.id,
+        )
+        return repository
+    except RepositoryNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
 
 @router.get(
     "/{repository_id}/files",
