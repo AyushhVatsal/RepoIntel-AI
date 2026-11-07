@@ -52,6 +52,11 @@ def select_graph_candidates(
         file_candidates.sort(
             key=lambda item: (
                 item.hop_count,
+                -(
+                    item.query_score
+                    if item.query_score is not None
+                    else item.score
+                ),
                 -item.score,
                 item.chunk_id,
             )
@@ -71,6 +76,11 @@ def select_graph_candidates(
         round_candidates.sort(
             key=lambda item: (
                 item.hop_count,
+                -(
+                    item.query_score
+                    if item.query_score is not None
+                    else item.score
+                ),
                 -item.score,
                 item.file_id,
                 item.chunk_id,

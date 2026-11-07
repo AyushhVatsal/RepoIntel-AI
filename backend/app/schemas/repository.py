@@ -39,6 +39,14 @@ class RepositoryResponse(RepositoryBase):
 
     indexing_error: str | None = None
 
+    graph_status: str = "not_built"
+
+    graph_built_at: datetime | None = None
+
+    graph_build_duration_ms: float | None = None
+
+    graph_error: str | None = None
+
     primary_language: str | None = None
 
     primary_framework: str | None = None

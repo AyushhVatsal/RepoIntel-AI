@@ -12,12 +12,14 @@ def candidate(
     file_id: int,
     hop_count: int = 0,
     score: float = 1.0,
+    query_score: float | None = None,
 ) -> GraphRetrievalResult:
     return GraphRetrievalResult(
         chunk_id=chunk_id,
         file_id=file_id,
         hop_count=hop_count,
         score=score,
+        query_score=query_score,
     )
 
 

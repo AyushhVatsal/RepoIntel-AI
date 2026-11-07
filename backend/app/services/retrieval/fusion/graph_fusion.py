@@ -90,6 +90,7 @@ class GraphFusion:
         # Keep the shortest graph distance for each candidate.
         graph_hops: dict[int, int] = {}
         graph_query_scores: dict[int, float] = {}
+        graph_provenance: dict[int, GraphRetrievalResult] = {}
         for result in graph_results:
             if result.hop_count < 0:
                 raise ValueError("graph hop_count must be non-negative")
@@ -102,6 +103,12 @@ class GraphFusion:
                     graph_query_scores.get(result.chunk_id, float("-inf")),
                     result.query_score,
                 )
+            previous_result = graph_provenance.get(result.chunk_id)
+            if (
+                previous_result is None
+                or result.hop_count < previous_result.hop_count
+            ):
+                graph_provenance[result.chunk_id] = result
 
         normalized_graph = self._normalize(graph_query_scores)
 
@@ -135,6 +142,21 @@ class GraphFusion:
                     else None
                 ),
                 retrieval_score=final_score,
+                graph_hop_count=(
+                    graph_provenance[chunk_id].hop_count
+                    if chunk_id in graph_provenance
+                    else None
+                ),
+                graph_path=(
+                    graph_provenance[chunk_id].graph_path
+                    if chunk_id in graph_provenance
+                    else None
+                ),
+                relationship_types=(
+                    graph_provenance[chunk_id].relationship_types
+                    if chunk_id in graph_provenance
+                    else None
+                ),
             )
 
             logger.debug(

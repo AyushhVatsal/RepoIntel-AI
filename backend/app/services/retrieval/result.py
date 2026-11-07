@@ -11,3 +11,6 @@ class RetrievalResult:
     retrieval_score: float | None = None
     cross_encoder_score: float | None = None
     hybrid_score: float | None = None
+    graph_hop_count: int | None = None
+    graph_path: tuple[str, ...] | None = None
+    relationship_types: tuple[str, ...] | None = None

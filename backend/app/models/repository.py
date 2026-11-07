@@ -33,6 +33,14 @@ class RepositoryStatus(str, Enum):
     FAILED = "failed"
 
 
+class GraphBuildStatus(str, Enum):
+    NOT_BUILT = "not_built"
+    QUEUED = "queued"
+    BUILDING = "building"
+    READY = "ready"
+    FAILED = "failed"
+
+
 class Repository(Base):
     __tablename__ = "repositories"
 
@@ -97,6 +105,21 @@ class Repository(Base):
     )
 
     indexing_error: Mapped[str | None] = mapped_column(String(2000))
+
+    graph_status: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        default=GraphBuildStatus.NOT_BUILT.value,
+        server_default=GraphBuildStatus.NOT_BUILT.value,
+    )
+
+    graph_built_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+    )
+
+    graph_build_duration_ms: Mapped[float | None] = mapped_column()
+
+    graph_error: Mapped[str | None] = mapped_column(String(2000))
 
     primary_language: Mapped[str | None] = mapped_column(
         String(100),

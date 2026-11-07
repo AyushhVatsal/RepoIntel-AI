@@ -48,6 +48,12 @@ class RetrievedChunk(BaseModel):
 
     retrieval_score: float | None = None
 
+    graph_hop_count: int | None = None
+
+    graph_path: list[str] | None = None
+
+    relationship_types: list[str] | None = None
+
 class RetrievalResponse(BaseModel):
     """Response returned by the retrieval module."""
 

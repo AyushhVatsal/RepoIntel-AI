@@ -203,6 +203,7 @@ class RetrievalService:
         # rerank. Requests that safely keep the RRF order avoid model-load
         # cost on cold start.
         self._cross_encoder: CrossEncoderReranker | None = None
+        self._last_rrf_chunk_ids: tuple[int, ...] = ()
         self._weighted_fusion = WeightedFusion(
             rrf_weight=rrf_weight,
             cross_encoder_weight=cross_encoder_weight,
@@ -325,6 +326,9 @@ class RetrievalService:
             filters=request.filters,
             candidate_k=candidate_k,
             preserve_top_k_order=True,
+        )
+        self._last_rrf_chunk_ids = tuple(
+            result.chunk_id for result in rrf_results
         )
         hybrid_search_ms = (perf_counter() - stage_start) * 1000
 
@@ -550,3 +554,13 @@ class RetrievalService:
     def embedding_model_name(self) -> str:
         """Return the model identifier used for query and document vectors."""
         return self._embedding_service.model_name
+
+    @property
+    def last_rrf_chunk_ids(self) -> tuple[int, ...]:
+        """Expose pre-rerank candidates to opt-in graph seeding."""
+        return self._last_rrf_chunk_ids
+
+
+def create_production_retrieval_service(db: Session) -> RetrievalService:
+    """Create Retrieval V2 with its frozen production defaults."""
+    return RetrievalService(db)

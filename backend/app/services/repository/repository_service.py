@@ -15,7 +15,11 @@ from app.exceptions.repository import (
     RepositoryAlreadyExistsError,
     RepositoryNotFoundError,
 )
-from app.models.repository import Repository, RepositoryStatus
+from app.models.repository import (
+    GraphBuildStatus,
+    Repository,
+    RepositoryStatus,
+)
 from app.models.repository_file import LanguageSupportTier
 from app.schemas.repository import RepositoryCreate
 from app.services.chunking.service import ChunkingService
@@ -24,6 +28,7 @@ from app.services.embedding.providers.local import (
     get_local_embedding_provider,
 )
 from app.services.embedding.service import EmbeddingService
+from app.services.knowledge_graph.lifecycle import build_repository_graph
 from app.services.parsers.models.file_content import FileContent
 from app.services.parsers.parser_service import ParserService
 from app.services.parsers.symbol_converter import SymbolConverter
@@ -144,6 +149,8 @@ class RepositoryService:
                 indexing_processed_files=0,
                 indexing_total_files=0,
                 indexing_error=None,
+                graph_status=GraphBuildStatus.NOT_BUILT.value,
+                graph_error=None,
             )
 
         return repository_crud.create(
@@ -158,6 +165,8 @@ class RepositoryService:
             indexing_processed_files=0,
             indexing_total_files=0,
             indexing_error=None,
+            graph_status=GraphBuildStatus.NOT_BUILT.value,
+            graph_error=None,
         )
 
     def process_indexing_job(
@@ -485,6 +494,16 @@ class RepositoryService:
             )
 
             get_bm25_index_manager().invalidate(repository.id)
+
+            # Graph persistence is a recoverable post-index stage. Its own
+            # status/error fields are independent of vector indexing status.
+            try:
+                build_repository_graph(db, repository.id)
+            except Exception:
+                logger.exception(
+                    "Graph lifecycle failed after indexing: repository_id=%s",
+                    repository.id,
+                )
 
             logger.info(
                 "[INDEX TIMING] "
