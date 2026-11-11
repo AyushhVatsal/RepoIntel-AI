@@ -69,6 +69,11 @@ def search_repository_with_graph(
     graph_candidate_multiplier: int = Query(default=2, ge=1),
     max_graph_candidates: int = Query(default=100, ge=1, le=200),
     graph_only: bool = Query(default=False),
+    imported_symbol: str | None = Query(
+        default=None,
+        min_length=1,
+        max_length=128,
+    ),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> RetrievalResponse:
     """Opt-in graph-augmented retrieval; `/search` remains Hybrid V2."""
@@ -81,6 +86,7 @@ def search_repository_with_graph(
         graph_candidate_multiplier=graph_candidate_multiplier,
         max_graph_candidates=max_graph_candidates,
         graph_only=graph_only,
+        imported_symbol=imported_symbol,
     )
     initialized_ms = (perf_counter() - started) * 1000
     response = service.retrieve(request)

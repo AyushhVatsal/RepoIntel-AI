@@ -58,6 +58,7 @@ class GraphEnhancedRetrievalService:
         seed_strategy: GraphSeedStrategy = "pre_rerank",
         seed_budget: int = 5,
         graph_only: bool = False,
+        imported_symbol: str | None = None
     ) -> None:
         if type(max_hops) is not int or not 0 <= max_hops <= MAX_GRAPH_HOPS:
             raise ValueError(
@@ -95,6 +96,11 @@ class GraphEnhancedRetrievalService:
             raise ValueError("unsupported graph seed strategy")
         if type(seed_budget) is not int or not 1 <= seed_budget <= 100:
             raise ValueError("seed_budget must be between 1 and 100")
+        
+        if imported_symbol is not None:
+            imported_symbol = imported_symbol.strip()
+            if not imported_symbol:
+                raise ValueError("imported_symbol must not be empty")
 
         self._baseline_service = (
             baseline_service
@@ -133,6 +139,7 @@ class GraphEnhancedRetrievalService:
         self._seed_strategy = seed_strategy
         self._seed_budget = seed_budget
         self._graph_only = graph_only
+        self._imported_symbol = imported_symbol
         self.last_seed_chunk_ids: list[int] = []
         self.last_independent_seed_ids: list[int] = []
 
@@ -269,6 +276,7 @@ class GraphEnhancedRetrievalService:
             repository_id=request.repository_id,
             seed_chunk_ids=seed_chunk_ids,
             max_hops=self._max_hops,
+            imported_symbol=self._imported_symbol,
             top_k=graph_top_k,
             filters=graph_filters,
             max_per_file=self._max_graph_candidates_per_file,

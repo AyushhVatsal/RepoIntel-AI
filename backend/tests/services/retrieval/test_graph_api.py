@@ -47,7 +47,7 @@ def test_graph_search_is_opt_in_and_exposes_strategy_parameters(
         response = client.post(
             "/retrieval/graph-search?seed_strategy=independent&graph_only=true"
             "&seed_budget=7&max_hops=2&graph_candidate_multiplier=4"
-            "&max_graph_candidates=80",
+            "&max_graph_candidates=80&imported_symbol=GraphRetriever",
             json={
                 "repository_id": 49,
                 "query": "Where is authentication handled?",
@@ -63,6 +63,7 @@ def test_graph_search_is_opt_in_and_exposes_strategy_parameters(
         "graph_candidate_multiplier": 4,
         "max_graph_candidates": 80,
         "graph_only": True,
+        "imported_symbol": "GraphRetriever",
     }
     payload = response.json()
     assert payload["ranking_policy"] == "graph_only_independent_seed_v1"

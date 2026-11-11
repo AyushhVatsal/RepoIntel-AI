@@ -74,8 +74,14 @@ class GraphRetriever:
         query_vector: Sequence[float] | None = None,
         embedding_model: str | None = None,
         include_seed_chunk_ids: Sequence[int] = (),
+        imported_symbol: str | None = None,
     ) -> list[GraphRetrievalResult]:
+        
         """Return graph-connected chunk candidates, excluding the seeds."""
+        if imported_symbol is not None:
+            imported_symbol = imported_symbol.strip()
+            if not imported_symbol:
+                raise ValueError("imported_symbol must not be empty")
 
         self._validate_parameters(
             repository_id=repository_id,
@@ -224,15 +230,19 @@ class GraphRetriever:
                     GraphEdge.target_node_id.in_(frontier)
                 )
 
-            edges = list(
-                self._db.scalars(
-                    select(GraphEdge).where(
-                        GraphEdge.repository_id == repository_id,
-                        GraphEdge.edge_type == GraphEdgeType.IMPORTS.value,
-                        or_(*edge_conditions),
-                    )
-                ).all()
+            edge_query = select(GraphEdge).where(
+                GraphEdge.repository_id == repository_id,
+                GraphEdge.edge_type == GraphEdgeType.IMPORTS.value,
+                or_(*edge_conditions),
             )
+
+            if imported_symbol is not None:
+                edge_query = edge_query.where(
+                    GraphEdge.metadata_["imported_symbol"].as_string()
+                    == imported_symbol
+                )
+
+            edges = list(self._db.scalars(edge_query).all())
 
             neighbor_ids: set[int] = set()
             parent_ids_by_neighbor: dict[int, set[int]] = defaultdict(set)

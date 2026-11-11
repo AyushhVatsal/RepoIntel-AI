@@ -93,6 +93,7 @@ def test_orchestrates_baseline_graph_fusion_and_hydration(
         query_vector=None,
         embedding_model=None,
         include_seed_chunk_ids=[],
+        imported_symbol=None,
     )
     fusion.fuse.assert_called_once()
     hydrator.hydrate.assert_called_once_with(
@@ -261,6 +262,7 @@ def test_independent_graph_mode_uses_lexical_seeds_without_hybrid_ids(
         query_vector=None,
         embedding_model=None,
         include_seed_chunk_ids=[30, 40],
+        imported_symbol=None,
     )
 
 
