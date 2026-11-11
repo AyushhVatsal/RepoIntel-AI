@@ -273,6 +273,8 @@ def test_missing_seed_graph_node_returns_empty_results():
         ({"top_k": 201}, "top_k"),
         ({"max_per_file": 0}, "max_per_file"),
         ({"direction": "unknown"}, "direction"),
+        ({"imported_symbol": ""}, "imported_symbol"),
+        ({"imported_symbol": "   "}, "imported_symbol"),
     ],
 )
 def test_rejects_invalid_parameters(kwargs, message):
@@ -685,3 +687,101 @@ def test_database_multi_hop_traversal_stops_cycles_and_reports_paths(
     assert results[1].graph_path[-1] == "frontend/server.ts"
     assert len(results[0].relationship_types) == 2
     assert len(results[1].relationship_types) == 3
+
+def test_imported_symbol_filter_matches_exact_import_symbol(
+    db,
+    retrieval_dataset,
+):
+    repository_id = retrieval_dataset["repository_id"]
+    seed_chunk = retrieval_dataset["chunks"][0]
+    graph_builder = knowledge_graph_builder
+
+    graph_builder.build(db, repository_id)
+
+    file_nodes = {
+        node.file_id: node
+        for node in db.scalars(
+            select(GraphNode).where(
+                GraphNode.repository_id == repository_id,
+                GraphNode.node_type == GraphNodeType.FILE.value,
+            )
+        ).all()
+    }
+
+    target_chunks = retrieval_dataset["chunks"][1:4]
+
+    seed_file_node = file_nodes[seed_chunk.file_id]
+
+    user_file_node = file_nodes[target_chunks[0].file_id]
+    server_file_node = file_nodes[target_chunks[1].file_id]
+    test_file_node = file_nodes[target_chunks[2].file_id]
+
+    db.add_all(
+        [
+            GraphEdge(
+                repository_id=repository_id,
+                source_node_id=seed_file_node.id,
+                target_node_id=user_file_node.id,
+                edge_type=GraphEdgeType.IMPORTS.value,
+                metadata_={"imported_symbol": "GraphRetriever"},
+            ),
+            GraphEdge(
+                repository_id=repository_id,
+                source_node_id=seed_file_node.id,
+                target_node_id=server_file_node.id,
+                edge_type=GraphEdgeType.IMPORTS.value,
+                metadata_={"imported_symbol": "GraphRetrievalResult"},
+            ),
+            GraphEdge(
+                repository_id=repository_id,
+                source_node_id=seed_file_node.id,
+                target_node_id=test_file_node.id,
+                edge_type=GraphEdgeType.IMPORTS.value,
+                metadata_={},
+            ),
+        ]
+    )
+    db.commit()
+
+    retriever = GraphRetriever(db)
+
+    exact_results = retriever.retrieve(
+        repository_id=repository_id,
+        seed_chunk_ids=[seed_chunk.id],
+        max_hops=1,
+        top_k=10,
+        direction="outgoing",
+        imported_symbol="GraphRetriever",
+    )
+
+    assert {result.chunk_id for result in exact_results} == {
+        target_chunks[0].id
+    }
+
+    different_symbol_results = retriever.retrieve(
+        repository_id=repository_id,
+        seed_chunk_ids=[seed_chunk.id],
+        max_hops=1,
+        top_k=10,
+        direction="outgoing",
+        imported_symbol="GraphRetrievalResult",
+    )
+
+    assert {result.chunk_id for result in different_symbol_results} == {
+        target_chunks[1].id
+    }
+
+    unrestricted_results = retriever.retrieve(
+        repository_id=repository_id,
+        seed_chunk_ids=[seed_chunk.id],
+        max_hops=1,
+        top_k=10,
+        direction="outgoing",
+    )
+
+    assert {result.chunk_id for result in unrestricted_results} == {
+        target_chunks[0].id,
+        target_chunks[1].id,
+        target_chunks[2].id,
+    }
+
