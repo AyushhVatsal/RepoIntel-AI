@@ -58,7 +58,6 @@ class GraphEnhancedRetrievalService:
         seed_strategy: GraphSeedStrategy = "pre_rerank",
         seed_budget: int = 5,
         graph_only: bool = False,
-        imported_symbol: str | None = None
     ) -> None:
         if type(max_hops) is not int or not 0 <= max_hops <= MAX_GRAPH_HOPS:
             raise ValueError(
@@ -97,10 +96,6 @@ class GraphEnhancedRetrievalService:
         if type(seed_budget) is not int or not 1 <= seed_budget <= 100:
             raise ValueError("seed_budget must be between 1 and 100")
         
-        if imported_symbol is not None:
-            imported_symbol = imported_symbol.strip()
-            if not imported_symbol:
-                raise ValueError("imported_symbol must not be empty")
 
         self._baseline_service = (
             baseline_service
@@ -139,13 +134,13 @@ class GraphEnhancedRetrievalService:
         self._seed_strategy = seed_strategy
         self._seed_budget = seed_budget
         self._graph_only = graph_only
-        self._imported_symbol = imported_symbol
         self.last_seed_chunk_ids: list[int] = []
         self.last_independent_seed_ids: list[int] = []
 
     def retrieve(
         self,
         request: RetrievalRequest,
+        imported_symbol: str | None = None,
     ) -> RetrievalResponse:
         """Retrieve baseline results and augment them with graph context."""
 
@@ -267,38 +262,51 @@ class GraphEnhancedRetrievalService:
 
         # Stage 2: Fetch a bounded graph candidate pool.
         stage_started = perf_counter()
+
         graph_top_k = min(
             request.top_k * self._graph_candidate_multiplier,
             self._max_graph_candidates,
         )
+
         selected_seed_set = set(seed_chunk_ids)
-        raw_graph_results = self._graph_retriever.retrieve(
-            repository_id=request.repository_id,
-            seed_chunk_ids=seed_chunk_ids,
-            max_hops=self._max_hops,
-            imported_symbol=self._imported_symbol,
-            top_k=graph_top_k,
-            filters=graph_filters,
-            max_per_file=self._max_graph_candidates_per_file,
-            query_vector=query_vector,
-            embedding_model=(
-                self._baseline_service.embedding_model_name
-                if query_vector is not None
-                else None
-            ),
-            include_seed_chunk_ids=[
-                chunk_id
-                for chunk_id in independent_seed_ids
-                if chunk_id in selected_seed_set
-            ],
-        )
+
+        if imported_symbol is not None:
+            raw_graph_results = self._graph_retriever.retrieve_importers(
+                repository_id=request.repository_id,
+                imported_symbol=imported_symbol,
+                top_k=graph_top_k,
+                max_per_file=self._max_graph_candidates_per_file,
+                filters=graph_filters,
+            )
+        else:
+            raw_graph_results = self._graph_retriever.retrieve(
+                repository_id=request.repository_id,
+                seed_chunk_ids=seed_chunk_ids,
+                max_hops=self._max_hops,
+                top_k=graph_top_k,
+                filters=graph_filters,
+                max_per_file=self._max_graph_candidates_per_file,
+                query_vector=query_vector,
+                embedding_model=(
+                    self._baseline_service.embedding_model_name
+                    if query_vector is not None
+                    else None
+                ),
+                include_seed_chunk_ids=[
+                    chunk_id
+                    for chunk_id in independent_seed_ids
+                    if chunk_id in selected_seed_set
+                ],
+            )
 
         graph_ms = (perf_counter() - stage_started) * 1000
+
         raw_graph_stage_metrics = getattr(
             self._graph_retriever,
             "last_latency_breakdown_ms",
             None,
         )
+
         graph_stage_metrics = (
             raw_graph_stage_metrics
             if isinstance(raw_graph_stage_metrics, dict)

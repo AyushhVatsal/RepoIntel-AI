@@ -93,8 +93,8 @@ def test_orchestrates_baseline_graph_fusion_and_hydration(
         query_vector=None,
         embedding_model=None,
         include_seed_chunk_ids=[],
-        imported_symbol=None,
     )
+    graph.retrieve_importers.assert_not_called()
     fusion.fuse.assert_called_once()
     hydrator.hydrate.assert_called_once_with(
         fusion.fuse.return_value
@@ -104,6 +104,64 @@ def test_orchestrates_baseline_graph_fusion_and_hydration(
     assert response.query == retrieval_request.query
     assert [result.chunk_id for result in response.results] == [10, 30]
 
+def test_symbol_lookup_uses_retrieve_importers(
+    retrieval_request: RetrievalRequest,
+) -> None:
+    baseline = Mock()
+    baseline.retrieve.return_value = RetrievalResponse(
+        repository_id=49,
+        query=retrieval_request.query,
+        results=[
+            make_chunk(10, 0.9),
+            make_chunk(20, 0.4),
+        ],
+    )
+
+    graph = Mock()
+    graph.retrieve_importers.return_value = [
+        GraphRetrievalResult(
+            chunk_id=30,
+            file_id=3,
+            hop_count=1,
+            score=0.5,
+            relationship_types=("IMPORTS", "HAS_CHUNK"),
+        ),
+    ]
+
+    fusion = Mock()
+    fusion.fuse.return_value = [
+        RetrievalResult(chunk_id=30, score=1.0),
+    ]
+
+    hydrator = Mock()
+    hydrator.hydrate.return_value = [
+        make_chunk(30, 1.0),
+    ]
+
+    service = GraphEnhancedRetrievalService(
+        Mock(),
+        baseline_service=baseline,
+        graph_retriever=graph,
+        graph_fusion=fusion,
+        hydrator=hydrator,
+    )
+
+    response = service.retrieve(
+        retrieval_request,
+        imported_symbol="GraphRetriever",
+    )
+
+    graph.retrieve_importers.assert_called_once_with(
+        repository_id=49,
+        imported_symbol="GraphRetriever",
+        top_k=6,
+        filters=service._graph_filters(None),
+        max_per_file=2,
+    )
+
+    graph.retrieve.assert_not_called()
+
+    assert [result.chunk_id for result in response.results] == [30]
 
 def test_empty_baseline_skips_graph_expansion(
     retrieval_request: RetrievalRequest,
@@ -262,7 +320,6 @@ def test_independent_graph_mode_uses_lexical_seeds_without_hybrid_ids(
         query_vector=None,
         embedding_model=None,
         include_seed_chunk_ids=[30, 40],
-        imported_symbol=None,
     )
 
 
