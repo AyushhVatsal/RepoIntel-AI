@@ -74,14 +74,10 @@ class GraphRetriever:
         query_vector: Sequence[float] | None = None,
         embedding_model: str | None = None,
         include_seed_chunk_ids: Sequence[int] = (),
-        imported_symbol: str | None = None,
     ) -> list[GraphRetrievalResult]:
         
         """Return graph-connected chunk candidates, excluding the seeds."""
-        if imported_symbol is not None:
-            imported_symbol = imported_symbol.strip()
-            if not imported_symbol:
-                raise ValueError("imported_symbol must not be empty")
+
 
         self._validate_parameters(
             repository_id=repository_id,
@@ -230,19 +226,15 @@ class GraphRetriever:
                     GraphEdge.target_node_id.in_(frontier)
                 )
 
-            edge_query = select(GraphEdge).where(
-                GraphEdge.repository_id == repository_id,
-                GraphEdge.edge_type == GraphEdgeType.IMPORTS.value,
-                or_(*edge_conditions),
+            edges = list(
+                self._db.scalars(
+                    select(GraphEdge).where(
+                        GraphEdge.repository_id == repository_id,
+                        GraphEdge.edge_type == GraphEdgeType.IMPORTS.value,
+                        or_(*edge_conditions),
+                    )
+                ).all()
             )
-
-            if imported_symbol is not None:
-                edge_query = edge_query.where(
-                    GraphEdge.metadata_["imported_symbol"].as_string()
-                    == imported_symbol
-                )
-
-            edges = list(self._db.scalars(edge_query).all())
 
             neighbor_ids: set[int] = set()
             parent_ids_by_neighbor: dict[int, set[int]] = defaultdict(set)
@@ -677,3 +669,79 @@ class GraphRetriever:
 
         if type(max_per_file) is not int or max_per_file < 1:
             raise ValueError("max_per_file must be a positive integer")
+
+    def retrieve_importers(
+        self,
+        *,
+        repository_id: int,
+        imported_symbol: str,
+        top_k: int = 50,
+        max_per_file: int = 2,
+        filters: RetrievalFilters | None = None,
+    ) -> list[GraphRetrievalResult]:
+        """Chunks of files that directly import `imported_symbol`."""
+        symbol = imported_symbol.strip() if isinstance(imported_symbol, str) else ""
+        if not symbol:
+            raise ValueError("imported_symbol must not be empty")
+        self._validate_parameters(
+            repository_id=repository_id, max_hops=1, top_k=top_k,
+            direction="incoming", max_per_file=max_per_file,
+        )
+        if top_k == 0:
+            return []
+
+        edges = self._db.scalars(
+            select(GraphEdge).where(
+                GraphEdge.repository_id == repository_id,
+                GraphEdge.edge_type == GraphEdgeType.IMPORTS.value,
+                GraphEdge.metadata_["imported_symbol"].as_string() == symbol,
+            )
+        ).all()
+        if not edges:
+            return []
+
+        file_nodes = self._db.scalars(
+            select(GraphNode).where(
+                GraphNode.repository_id == repository_id,
+                GraphNode.node_type == GraphNodeType.FILE.value,
+                GraphNode.id.in_({e.source_node_id for e in edges}),
+            )
+        ).all()
+        path_by_file_id = {
+            n.file_id: (getattr(n, "qualified_name", None) or str(n.file_id),)
+            for n in file_nodes if n.file_id is not None
+        }
+        if not path_by_file_id:
+            return []
+
+        f = filters or RetrievalFilters()
+        q = (
+            select(Chunk.id, Chunk.file_id)
+            .join(RepositoryFile, and_(
+                RepositoryFile.id == Chunk.file_id,
+                RepositoryFile.repository_id == repository_id))
+            .where(Chunk.repository_id == repository_id,
+                Chunk.file_id.in_(path_by_file_id))
+        )
+        if f.language:  q = q.where(RepositoryFile.language == f.language)
+        if f.role:      q = q.where(RepositoryFile.role == f.role)
+        if f.exclude_roles:
+            q = q.where(~RepositoryFile.role.in_(f.exclude_roles))
+        if f.chunk_type: q = q.where(Chunk.chunk_type == f.chunk_type)
+        q = q.order_by(Chunk.file_id, Chunk.chunk_index, Chunk.id)
+
+        per_file: dict[int, int] = defaultdict(int)
+        results: list[GraphRetrievalResult] = []
+        for chunk_id, file_id in self._db.execute(q):
+            if per_file[file_id] >= max_per_file:
+                continue
+            per_file[file_id] += 1
+            results.append(GraphRetrievalResult(
+                chunk_id=chunk_id, file_id=file_id, hop_count=1, score=0.5,
+                graph_path=path_by_file_id[file_id],
+                relationship_types=(GraphEdgeType.IMPORTS.value,
+                                    GraphEdgeType.HAS_CHUNK.value),
+            ))
+            if len(results) >= top_k:
+                break
+        return results

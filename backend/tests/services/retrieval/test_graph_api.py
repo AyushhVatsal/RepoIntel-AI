@@ -13,9 +13,11 @@ def test_graph_search_is_opt_in_and_exposes_strategy_parameters(
 
     class FakeGraphService:
         def __init__(self, _db, **kwargs):
-            captured.update(kwargs)
+            captured["constructor"] = kwargs
 
-        def retrieve(self, request):
+        def retrieve(self, request, imported_symbol=None):
+            captured["imported_symbol"] = imported_symbol
+
             return RetrievalResponse(
                 repository_id=request.repository_id,
                 query=request.query,
@@ -56,15 +58,16 @@ def test_graph_search_is_opt_in_and_exposes_strategy_parameters(
         )
 
     assert response.status_code == 200
-    assert captured == {
+    assert captured["constructor"] == {
         "seed_strategy": "independent",
         "seed_budget": 7,
         "max_hops": 2,
         "graph_candidate_multiplier": 4,
         "max_graph_candidates": 80,
         "graph_only": True,
-        "imported_symbol": "GraphRetriever",
     }
+
+    assert captured["imported_symbol"] == "GraphRetriever"
     payload = response.json()
     assert payload["ranking_policy"] == "graph_only_independent_seed_v1"
     assert payload["results"][0]["graph_path"] == [

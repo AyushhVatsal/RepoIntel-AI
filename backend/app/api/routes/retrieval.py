@@ -86,10 +86,12 @@ def search_repository_with_graph(
         graph_candidate_multiplier=graph_candidate_multiplier,
         max_graph_candidates=max_graph_candidates,
         graph_only=graph_only,
-        imported_symbol=imported_symbol,
     )
     initialized_ms = (perf_counter() - started) * 1000
-    response = service.retrieve(request)
+    response = service.retrieve(
+        request,
+        imported_symbol=imported_symbol,
+    )
     api_latency_ms = (perf_counter() - started) * 1000
     latency_breakdown = dict(response.latency_breakdown_ms or {})
     latency_breakdown["service_initialization_ms"] = initialized_ms
